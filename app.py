@@ -1,16 +1,33 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect
 import os
 from dotenv import load_dotenv
+from flask_mail import Mail, Message
+import requests as http_requests
+import random
+import string
+import json
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Load environment variables
 load_dotenv()
 import pickle
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_sqlalchemy import SQLAlchemy
+from flask_apscheduler import APScheduler
 from ml.predict import predict_disease
 
 # Initialize Flask app
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev_key_for_demo_123')
+
+# --- Flask-Mail Configuration (Gmail) ---
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')       # your Gmail address
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')       # Gmail App Password (not regular password)
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME') # same as username
+mail = Mail(app)
 
 # Configure SQLAlchemy (PostgreSQL default for demo)
 # Automatically handle Render/Heroku 'postgres://' database URLs
@@ -22,7 +39,34 @@ app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# Database Model for Appointments
+# --- Flask-APScheduler Configuration ---
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
+
+# Database Models
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    is_verified = db.Column(db.Boolean, default=False)
+    verification_code = db.Column(db.String(6), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class PredictionRecord(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    symptoms = db.Column(db.Text, nullable=False)  # JSON-encoded list
+    predicted_disease = db.Column(db.String(255), nullable=False)
+    top_predictions = db.Column(db.Text, nullable=False)  # JSON-encoded list
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class Appointment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     hospital_name = db.Column(db.String(255), nullable=False)
@@ -32,10 +76,16 @@ class Appointment(db.Model):
     patient_name = db.Column(db.String(255), nullable=False)
     patient_phone = db.Column(db.String(50), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    # Reminder flags
+    reminder_12h_sent = db.Column(db.Boolean, default=False)
+    reminder_1h_sent = db.Column(db.Boolean, default=False)
 
     def to_dict(self):
         return {
             'id': self.id,
+            'user_id': self.user_id,
             'hospital_name': self.hospital_name,
             'doctor_name': self.doctor_name,
             'appointment_date': self.appointment_date,
@@ -62,11 +112,256 @@ SYMPTOMS_PATH = os.path.join(BASE_DIR, 'model', 'symptoms.pkl')
 @app.route('/')
 def index():
     """Render the main UI page."""
-    return render_template('index.html')
+    user_id = session.get('user_id')
+    user = User.query.get(user_id) if user_id else None
+    return render_template('index.html', user=user)
+
+
+def send_verification_email(app_instance, to_email, code):
+    """Send a verification code email via Flask-Mail (Gmail SMTP)."""
+    try:
+        with app_instance.app_context():
+            msg = Message(
+                subject="Your Smart CDSS Verification Code",
+                recipients=[to_email]
+            )
+            msg.html = f"""
+            <div style="font-family:Inter,sans-serif;max-width:480px;margin:auto;padding:32px;">
+                <h2 style="color:#4F46E5;margin-bottom:8px;">Verify Your Email</h2>
+                <p style="color:#64748B;">Use the code below to complete your Smart CDSS registration:</p>
+                <div style="background:#EEF2FF;border-radius:12px;padding:24px 32px;text-align:center;margin:24px 0;">
+                    <span style="font-size:2.5rem;font-weight:800;letter-spacing:8px;color:#4F46E5;">{code}</span>
+                </div>
+                <p style="color:#94A3B8;font-size:0.85rem;">If you didn't register, please ignore this email.</p>
+            </div>
+            """
+            mail.send(msg)
+            print(f"[EMAIL] Verification code sent to {to_email}")
+            return True
+    except Exception as e:
+        print(f"[EMAIL] Failed to send email: {type(e).__name__}: {e}")
+        return False
+        
+def send_appointment_email(app_instance, appointment, email_type='confirmation'):
+    """
+    Send an appointment email (confirmation or reminder).
+    email_type: 'confirmation', '12h_reminder', or '1h_reminder'
+    """
+    try:
+        with app_instance.app_context():
+            # Find the user's email
+            if not appointment.user_id:
+                print(f"[EMAIL] No user_id for appointment {appointment.id}, skipping email.")
+                return False
+                
+            user = User.query.get(appointment.user_id)
+            if not user or not user.email:
+                print(f"[EMAIL] User not found for appointment {appointment.id}, skipping.")
+                return False
+            
+            subject_map = {
+                'confirmation': 'Appointment Confirmation - Smart CDSS',
+                '12h_reminder': 'Appointment Reminder (12 Hours) - Smart CDSS',
+                '1h_reminder': 'Appointment Reminder (1 Hour) - Smart CDSS'
+            }
+            
+            title_map = {
+                'confirmation': 'Appointment Confirmed',
+                '12h_reminder': 'Upcoming Appointment (12h)',
+                '1h_reminder': 'Upcoming Appointment (1h)'
+            }
+            
+            msg = Message(
+                subject=subject_map.get(email_type, 'Appointment Update'),
+                recipients=[user.email]
+            )
+            
+            msg.html = f"""
+            <div style="font-family:Inter,sans-serif;max-width:550px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:16px;">
+                <h2 style="color:#4F46E5;margin-bottom:16px;">{title_map.get(email_type, 'Appointment Update')}</h2>
+                <p style="color:#475569;font-size:1.1rem;margin-bottom:24px;">Hello <strong>{appointment.patient_name}</strong>, here are the details of your appointment:</p>
+                
+                <div style="background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:24px;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <tr>
+                            <td style="padding:8px 0;color:#64748B;width:120px;">Hospital:</td>
+                            <td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.hospital_name}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px 0;color:#64748B;">Doctor:</td>
+                            <td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.doctor_name}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px 0;color:#64748B;">Date:</td>
+                            <td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_date}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px 0;color:#64748B;">Time Slot:</td>
+                            <td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_time}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <p style="color:#64748B;font-size:0.9rem;border-top:1px solid #f1f5f9;padding-top:16px;">
+                    Thank you for choosing Smart CDSS. Please arrive 10 minutes before your scheduled time.
+                </p>
+            </div>
+            """
+            mail.send(msg)
+            print(f"[EMAIL] Appointment {email_type} email sent to {user.email}")
+            return True
+    except Exception as e:
+        print(f"[EMAIL] Failed to send appointment email: {e}")
+        return False
+
+def parse_appointment_time(date_str, time_str):
+    """
+    Helper to parse appointment date (YYYY-MM-DD) and time (HH:MM AM/PM) 
+    into a datetime object.
+    """
+    try:
+        combined_str = f"{date_str} {time_str}"
+        return datetime.strptime(combined_str, "%Y-%m-%d %I:%M %p")
+    except Exception as e:
+        print(f"[SCHEDULER] Error parsing date/time ({date_str} {time_str}): {e}")
+        return None
+
+@scheduler.task('interval', id='check_reminders', minutes=10, misfire_grace_time=900)
+def check_reminders():
+    """Background job to check and send appointment reminders."""
+    with app.app_context():
+        now = datetime.utcnow()
+        # Find all future appointments
+        appointments = Appointment.query.filter(
+            (Appointment.reminder_12h_sent == False) | (Appointment.reminder_1h_sent == False)
+        ).all()
+        
+        for appt in appointments:
+            appt_time = parse_appointment_time(appt.appointment_date, appt.appointment_time)
+            if not appt_time:
+                continue
+                
+            time_to_appt = appt_time - now
+            
+            # 12h Reminder: time_to_appt <= 12 hours
+            if not appt.reminder_12h_sent and timedelta(hours=0) < time_to_appt <= timedelta(hours=12):
+                if send_appointment_email(app, appt, email_type='12h_reminder'):
+                    appt.reminder_12h_sent = True
+                    db.session.commit()
+            
+            # 1h Reminder: time_to_appt <= 1 hour
+            if not appt.reminder_1h_sent and timedelta(hours=0) < time_to_appt <= timedelta(hours=1):
+                if send_appointment_email(app, appt, email_type='1h_reminder'):
+                    appt.reminder_1h_sent = True
+                    db.session.commit()
+
+@app.route('/api/test/check_reminders', methods=['GET'])
+def test_check_reminders():
+    """Manual trigger for testing the background job."""
+    check_reminders()
+    return jsonify({"message": "Reminder check triggered."}), 200
+
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+
+        if not email or not password:
+            return jsonify({"error": "Email and password required"}), 400
+
+        if User.query.filter_by(email=email).first():
+            return jsonify({"error": "Email already registered"}), 400
+
+        verification_code = ''.join(random.choices(string.digits, k=6))
+        new_user = User(email=email, verification_code=verification_code)
+        new_user.set_password(password)
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        # Send OTP via Gmail
+        email_sent = send_verification_email(app, email, verification_code)
+
+        if email_sent:
+            return jsonify({"message": "Registration successful! Check your email for the OTP code."}), 201
+        else:
+            # Fallback demo mode
+            return jsonify({
+                "message": "Registration successful! (Email unavailable - use code to verify)",
+                "demo_code": verification_code
+            }), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/verify', methods=['POST'])
+def verify():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        code = data.get('code')
+
+        user = User.query.filter_by(email=email, verification_code=code).first()
+        if not user:
+            return jsonify({"error": "Invalid email or verification code"}), 400
+
+        user.is_verified = True
+        user.verification_code = None
+        db.session.commit()
+
+        return jsonify({"message": "Email verified successfully. You can now login."}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+
+        user = User.query.filter_by(email=email).first()
+        if not user or not user.check_password(password):
+            return jsonify({"error": "Invalid email or password"}), 401
+
+        if not user.is_verified:
+            return jsonify({"error": "Please verify your email first"}), 403
+
+        session['user_id'] = user.id
+        return jsonify({"message": "Login successful", "user_id": user.id}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.pop('user_id', None)
+    return jsonify({"message": "Logged out successfully"}), 200
+
+@app.route('/history')
+def history():
+    """Render the full prediction history page. Requires login."""
+    if 'user_id' not in session:
+        return redirect('/?login_required=1')
+    user = User.query.get(session['user_id'])
+    return render_template('history.html', user=user)
+
+@app.route('/appointments-history')
+def appointments_history():
+    """Render the full appointments history page. Requires login."""
+    if 'user_id' not in session:
+        return redirect('/?login_required=1')
+    user = User.query.get(session['user_id'])
+    return render_template('appointments_history.html', user=user)
 
 @app.route('/appointment')
 def appointment():
-    """Render the appointment booking UI page."""
+    """Render the appointment booking UI page. Requires login."""
+    if 'user_id' not in session:
+        return redirect('/?login_required=1')
     hospital_name = request.args.get('hospital', '')
     return render_template('appointment.html', hospital_name=hospital_name)
 
@@ -83,7 +378,9 @@ def book_appointment():
             if field not in data or not data[field]:
                 return jsonify({"error": f"Missing required field: {field}"}), 400
                 
+        user_id = session.get('user_id')
         new_appointment = Appointment(
+            user_id=user_id,
             hospital_name=data['hospital_name'],
             doctor_name=data['doctor_name'],
             appointment_date=data['appointment_date'],
@@ -95,6 +392,9 @@ def book_appointment():
         db.session.add(new_appointment)
         db.session.commit()
         
+        # Send confirmation email
+        send_appointment_email(app, new_appointment, email_type='confirmation')
+        
         return jsonify({
             "message": "Appointment booked successfully!", 
             "appointment": new_appointment.to_dict()
@@ -102,12 +402,11 @@ def book_appointment():
         
     except Exception as e:
         print(f"Error booking appointment: {str(e)}")
-        # In case DB is not set up correctly locally during demo, we fallback to a fake success message
+        # In case DB is not set up correctly locally during demo, we return an error 500
         return jsonify({
-            "message": "Appointment booked successfully (Demo Mode - DB Warning)", 
-            "error_log": str(e),
-            "appointment": data
-        }), 201
+            "error": "Failed to save appointment to database.", 
+            "details": str(e)
+        }), 500
 
 @app.route('/api/symptoms', methods=['GET'])
 def get_symptoms():
@@ -137,6 +436,21 @@ def predict():
         if "error" in prediction:
             return jsonify(prediction), 500
             
+        # Store prediction if user is logged in
+        user_id = session.get('user_id')
+        if user_id:
+            try:
+                record = PredictionRecord(
+                    user_id=user_id,
+                    symptoms=json.dumps(user_symptoms),
+                    predicted_disease=prediction['prediction'],
+                    top_predictions=json.dumps(prediction['top_predictions'])
+                )
+                db.session.add(record)
+                db.session.commit()
+            except Exception as e:
+                print(f"Error saving prediction record: {e}")
+
         return jsonify(prediction)
         
     except Exception as e:
@@ -269,6 +583,31 @@ def get_hospitals():
         
     except Exception as e:
         return jsonify({"error": f"Failed to fetch hospitals: {str(e)}"}), 500
+
+@app.route('/api/user/data', methods=['GET'])
+def get_user_data():
+    """Retrieve history of predictions and appointments for the logged-in user."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+        
+    try:
+        predictions = PredictionRecord.query.filter_by(user_id=user_id).order_by(PredictionRecord.created_at.desc()).all()
+        appointments = Appointment.query.filter_by(user_id=user_id).order_by(Appointment.created_at.desc()).all()
+        
+        return jsonify({
+            "user_id": user_id,
+            "predictions": [{
+                "id": p.id,
+                "symptoms": json.loads(p.symptoms),
+                "predicted_disease": p.predicted_disease,
+                "top_predictions": json.loads(p.top_predictions),
+                "created_at": p.created_at.isoformat()
+            } for p in predictions],
+            "appointments": [a.to_dict() for a in appointments]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/chat', methods=['POST'])
 def chat():

@@ -11,6 +11,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeResultBtn = document.getElementById('close-result');
     const diseaseName = document.getElementById('disease-name');
 
+    // Landing Page Elements
+    const landingPage = document.getElementById('landing-page');
+    const mainDashboard = document.getElementById('main-dashboard');
+    const getStartedBtn = document.getElementById('get-started-btn');
+    const guestModeBtn = document.getElementById('guest-mode-btn');
+
+    // Handle Landing Page Transitions
+    if (getStartedBtn) {
+        getStartedBtn.addEventListener('click', () => {
+            document.getElementById('login-trigger-btn')?.click();
+        });
+    }
+
+    if (guestModeBtn) {
+        guestModeBtn.addEventListener('click', () => {
+            landingPage.classList.add('hidden');
+            mainDashboard.classList.remove('hidden');
+            mainDashboard.style.animation = 'fadeIn 0.8s ease-out';
+            window._isGuestMode = true;
+            // Close auth modal if open
+            const authModal = document.getElementById('auth-modal');
+            if (authModal) authModal.style.display = 'none';
+
+            // Hide hospitals tab for guest mode
+            document.getElementById('nav-hospitals')?.classList.add('hidden');
+        });
+    }
+
     let allSymptoms = [];
     const selectedSymptomsSet = new Set();
 
@@ -154,9 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
         predictBtn.disabled = true;
         clearBtn.disabled = true;
 
-        // Hide post-prediction tabs
+        // Hide post-prediction tabs (Except Hospitals which is now always available)
         document.getElementById('nav-diagnosis').classList.add('hidden');
-        document.getElementById('nav-hospitals').classList.add('hidden');
         
         // Switch back to symptoms tab
         document.getElementById('nav-symptoms').click();
@@ -251,7 +278,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Reveal blocked tabs
             document.getElementById('nav-diagnosis').classList.remove('hidden');
-            document.getElementById('nav-hospitals').classList.remove('hidden');
+            if (!window._isGuestMode) {
+                document.getElementById('nav-hospitals').classList.remove('hidden');
+            }
 
             // Switch to Diagnosis tab
             document.getElementById('nav-diagnosis').click();
@@ -317,11 +346,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.target_specialty) {
                     html += `<div style="font-size:0.85rem;color:var(--primary-color);margin-bottom:1rem;background:#e0e7ff;padding:0.5rem 1rem;border-radius:8px;">💡 Prioritizing facilities with <b>${data.target_specialty}</b> departments for ${diseaseName}.</div>`;
                 }
-                
-                data.hospitals.forEach(h => {
+                              data.hospitals.forEach(h => {
                     const badge = h.is_specialized ? `<span style="background:var(--primary-color);color:white;font-size:0.7rem;padding:2px 8px;border-radius:12px;margin-left:8px;vertical-align:middle;">Recommended</span>` : '';
                     
                     const mapQuery = encodeURIComponent(`${h.name} ${h.lat},${h.lon}`);
+                    const appointmentBtn = window._isGuestMode
+                        ? `<button onclick="alert('Please login or create an account to book appointments.')" style="background: #CBD5E1; color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; cursor: not-allowed; font-size: 0.9rem;">🔒 Login to Book</button>`
+                        : `<button onclick="window.location.href = '/appointment?hospital=' + encodeURIComponent('${h.name.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" style="background: var(--primary-color); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; cursor: pointer; font-size: 0.9rem; transition: background 0.2s ease;">📅 Book Appointment</button>`;
                     html += `
                         <div class="hospital-card" style="background:var(--bg-color);border:1px solid var(--border-color);border-radius:12px;padding:1.25rem;margin-bottom:1rem;position:relative;">
                             <h5 style="color:var(--primary-color);font-size:1.05rem;margin-bottom:0.5rem;margin-top:0;">
@@ -331,9 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${h.phone !== 'Phone not available' ? `<p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;">📞 ${h.phone}</p>` : '<div style="margin-bottom: 1rem;"></div>'}
                             
                             <div style="display: flex; gap: 1rem; align-items: center; margin-top: auto; flex-wrap: wrap;">
-                                <button onclick="window.open('/appointment?hospital=' + encodeURIComponent('${h.name.replace(/'/g, "\\'")}'), '_blank')" style="background: var(--primary-color); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; cursor: pointer; font-size: 0.9rem; transition: background 0.2s ease;">
-                                    📅 Book Appointment
-                                </button>
+                                ${appointmentBtn}
                                 <a href="https://www.google.com/maps/search/?api=1&query=${mapQuery}" target="_blank" style="font-size:0.85rem;color:var(--primary-color);text-decoration:none;font-weight:600;">
                                     🗺️ View on Map ↗
                                 </a>
@@ -378,6 +407,15 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.add('active');
             const target = btn.getAttribute('data-target');
             document.getElementById(target).classList.add('active');
+
+            // If hospitals tab is clicked and it's currently empty, trigger location request
+            if (target === 'tab-hospitals') {
+                const hospitalsList = document.getElementById('hospitals-list');
+                // Check if it's the default loading state or empty
+                if (hospitalsList.querySelector('.loading-hospitals')) {
+                    requestLocation();
+                }
+            }
         });
     });
 
@@ -645,4 +683,235 @@ document.addEventListener('DOMContentLoaded', () => {
             chatHistory.pop();
         }
     });
+
+    // --- Authentication & Account Logic ---
+    const authModal = document.getElementById('auth-modal');
+    const loginTriggerBtn = document.getElementById('login-trigger-btn');
+    const closeAuthModal = document.getElementById('close-auth-modal');
+    const loginView = document.getElementById('login-view');
+    const registerView = document.getElementById('register-view');
+    const verifyView = document.getElementById('verify-view');
+    const switchToRegister = document.getElementById('switch-to-register');
+    const switchToLogin = document.getElementById('switch-to-login');
+
+    if (loginTriggerBtn) {
+        loginTriggerBtn.addEventListener('click', () => {
+            authModal.style.display = 'flex';
+            showView('login');
+        });
+    }
+
+    // --- Sidebar Logic ---
+    const userSidebar = document.getElementById('user-sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const userProfileBtn = document.getElementById('user-profile-btn');
+    const closeSidebarBtn = document.getElementById('close-sidebar');
+
+    function toggleSidebar(show) {
+        if (show) {
+            userSidebar.classList.add('active');
+            sidebarOverlay.classList.add('active');
+            loadUserHistory(); // Refresh history when opening
+        } else {
+            userSidebar.classList.remove('active');
+            sidebarOverlay.classList.remove('active');
+        }
+    }
+
+    if (userProfileBtn) {
+        userProfileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSidebar(true);
+        });
+    }
+
+    if (closeSidebarBtn) {
+        closeSidebarBtn.addEventListener('click', () => toggleSidebar(false));
+    }
+
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
+    }
+
+    // --- Accordion Logic ---
+    const accordions = document.querySelectorAll('.accordion-toggle');
+    accordions.forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            const section = toggle.closest('.sidebar-section');
+            section.classList.toggle('active');
+        });
+    });
+
+    if (authModal) {
+        // Prevent clicking user-profile from closing modal if logic conflicts
+    }
+
+    if (closeAuthModal) {
+        closeAuthModal.addEventListener('click', () => {
+            authModal.style.display = 'none';
+        });
+    }
+
+    window.addEventListener('click', (e) => {
+        if (e.target === authModal) authModal.style.display = 'none';
+    });
+
+    function showView(viewName) {
+        loginView.classList.add('hidden');
+        registerView.classList.add('hidden');
+        verifyView.classList.add('hidden');
+
+        if (viewName === 'login') loginView.classList.remove('hidden');
+        else if (viewName === 'register') registerView.classList.remove('hidden');
+        else if (viewName === 'verify') verifyView.classList.remove('hidden');
+    }
+
+    switchToRegister.addEventListener('click', (e) => { e.preventDefault(); showView('register'); });
+    switchToLogin.addEventListener('click', (e) => { e.preventDefault(); showView('login'); });
+
+    // Handle Login
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            location.reload(); // Reload to update UI with user session
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // Handle Register
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('register-email').value;
+        const password = document.getElementById('register-password').value;
+
+        try {
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            alert(data.message);
+            if (data.demo_code) console.log("Demo Verification Code:", data.demo_code);
+            
+            // Store email for verification view
+            document.getElementById('verify-form').dataset.email = email;
+            showView('verify');
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // Handle Verify
+    document.getElementById('verify-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = e.target.dataset.email;
+        const code = document.getElementById('verify-code').value;
+
+        try {
+            const res = await fetch('/api/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            alert(data.message);
+            showView('login');
+        } catch (err) {
+            alert(err.message);
+        }
+    });
+
+    // Handle Logout
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            await fetch('/api/logout', { method: 'POST' });
+            location.reload();
+        });
+    }
+
+    // --- History Loading Logic ---
+    async function loadUserHistory() {
+        const predList = document.getElementById('sidebar-predictions-list');
+        const apptList = document.getElementById('sidebar-appointments-list');
+        const viewMorePreds = document.getElementById('view-more-predictions');
+        const viewMoreAppts = document.getElementById('view-more-appointments');
+        
+        if (!predList || !apptList) return;
+
+        try {
+            const res = await fetch('/api/user/data');
+            if (!res.ok) return;
+
+            const data = await res.json();
+            
+            // Predictions (Limit to 3)
+            if (data.predictions && data.predictions.length > 0) {
+                predList.innerHTML = '';
+                const itemsToShow = data.predictions.slice(0, 3);
+                itemsToShow.forEach(p => {
+                    const date = new Date(p.created_at).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric'
+                    });
+                    const item = document.createElement('div');
+                    item.className = 'history-item-sidebar';
+                    item.innerHTML = `
+                        <span class="disease">${p.predicted_disease}</span>
+                        <span class="date">${date}</span>
+                    `;
+                    predList.appendChild(item);
+                });
+                
+                viewMorePreds.classList.remove('hidden');
+            } else {
+                predList.innerHTML = '<p class="empty-text-sidebar">No recent predictions.</p>';
+                viewMorePreds.classList.remove('hidden');
+            }
+
+            // Appointments (Limit to 3)
+            if (data.appointments && data.appointments.length > 0) {
+                apptList.innerHTML = '';
+                const itemsToShow = data.appointments.slice(0, 3);
+                itemsToShow.forEach(a => {
+                    const item = document.createElement('div');
+                    item.className = 'history-item-sidebar';
+                    item.innerHTML = `
+                        <span class="disease">${a.doctor_name}</span>
+                        <span class="date">${a.hospital_name}</span>
+                        <div class="date" style="margin-top:2px;">📅 ${a.appointment_date} at ${a.appointment_time}</div>
+                    `;
+                    apptList.appendChild(item);
+                });
+
+                viewMoreAppts.classList.remove('hidden');
+            } else {
+                apptList.innerHTML = '<p class="empty-text-sidebar">No upcoming appointments.</p>';
+                viewMoreAppts.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error("Error loading history:", error);
+        }
+    }
+
+    // Initial load if user is already logged in
+    if (document.getElementById('user-profile-btn')) {
+        loadUserHistory();
+    }
 });
