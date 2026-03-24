@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 
-<body>
+<body class="{% if user %}mobile-dashboard-active{% endif %}">
     <!-- Background Design -->
     <div class="background-shape shape-1"></div>
     <div class="background-shape shape-2"></div>
@@ -274,8 +274,17 @@
                             </div>
                         </div>
 
-                        <!-- Tab 1: Overview & Details (Master-Detail UI) -->
+                        <!-- Tab 1: Overview (Diagnosis Results) -->
                         <div class="tab-content" id="tab-overview">
+                            <div class="mobile-nav-buttons">
+                                <button class="mobile-back-btn" onclick="document.getElementById('nav-symptoms').click()">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                                    </svg>
+                                    Back to Symptoms
+                                </button>
+                            </div>
+                            <div class="diagnosis-header" id="diagnosis-header"></div>
 
                             <!-- Master-Detail Grid Layout -->
                             <div class="master-detail-grid">
@@ -367,10 +376,29 @@
                                 </div>
 
                             </div>
+                            <!-- Bottom transition button for mobile linear flow (Logged-in users only) -->
+                            {% if user %}
+                            <div class="mobile-nav-buttons" style="margin-top: 2rem; padding: 0 1rem 1.5rem 1rem;">
+                                <button class="primary-btn w-full" onclick="document.getElementById('nav-hospitals').click()" style="justify-content: center; width: 100%;">
+                                    Find Nearby Hospitals
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            {% endif %}
                         </div>
 
                         <!-- Tab 2: Hospitals -->
                         <div class="tab-content" id="tab-hospitals">
+                            <div class="mobile-nav-buttons">
+                                <button class="mobile-back-btn" onclick="document.getElementById('nav-diagnosis').click()">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                                    </svg>
+                                    Back to Diagnosis
+                                </button>
+                            </div>
                             <div class="hospitals-header">
                                 <h4>Nearby Healthcare Facilities</h4>
                                 <p class="text-sm">Based on your device location</p>
@@ -390,6 +418,15 @@
 
                         <!-- Tab 3: Chatbot (ChatGPT Style) -->
                         <div class="tab-content" id="tab-chat">
+                            <div class="mobile-chat-header">
+                                <h3>AI Assistant</h3>
+                                <button class="mobile-back-btn" id="close-chat-mobile" style="color: white; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1);">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                                    </svg>
+                                    Back to Dashboard
+                                </button>
+                            </div>
                             <div class="chat-wrapper">
                                 <div id="chat-messages" class="chat-messages full-height">
                                     <div class="message assistant-msg">
@@ -534,6 +571,12 @@
         </div>
 
         <div class="sidebar-footer">
+            <button class="back-dashboard-btn" id="sidebar-back-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Back to Dashboard
+            </button>
             <button id="dark-mode-toggle" class="dark-mode-btn">
                 <span id="dark-mode-icon"></span>
                 <span id="dark-mode-label">Dark Mode</span>
@@ -550,6 +593,13 @@
             </button>
             {% endif %}
         </div>
+    </div>
+
+    <!-- Floating AI Assistant FAB (Mobile Only) -->
+    <div class="chat-fab" id="mobile-chat-fab">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
     </div>
 
     <!-- Main JavaScript -->

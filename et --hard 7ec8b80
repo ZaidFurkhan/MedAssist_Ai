@@ -1,0 +1,13 @@
+[33m89db59c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m back to neon db
+[33m39095b7[m  new update for login
+[33meecf25e[m new render updates for ai and login
+[33m15accb4[m render compatibility
+[33m0494aff[m render.ymal u updated
+[33m2c69105[m chore: prepare for deployment and add recommendations
+[33m760a710[m Replace Flask-Mail with smtplib and clean up requirements for Vercel compatibility
+[33m497f7bf[m Remove Flask-APScheduler to fix Vercel build failure
+[33md2d9edc[m Disable APScheduler on Vercel and finalize config
+[33m2a438cc[m Switch automatic reminders to GitHub Actions to bypass Vercel Hobby limits
+[33m4b6b77d[m Configure for Vercel deployment and add Cron Jobs for reminders
+[33m7ec8b80[m landing page and user login with separate data
+[33md150e93[m Initial Commit

@@ -7,6 +7,7 @@ import random
 import string
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
+from groq import Groq
 
 # Load environment variables
 load_dotenv()
@@ -19,6 +20,9 @@ from ml.predict import predict_disease
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev_key_for_demo_123')
+
+# Initialize Groq client
+groq_client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
 
 # --- Flask-Mail Configuration (Gmail) ---
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -611,94 +615,62 @@ def get_user_data():
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    """Handle chatbot queries using g4f."""
+    """Handle chatbot queries using Groq Cloud LLM."""
     data = request.get_json()
     if not data or 'messages' not in data:
         return jsonify({"error": "Messages payload required."}), 400
         
     try:
-        # Expected format: [{"role": "user"/"assistant", "content": "..."}]
         messages = data['messages']
-        
-        # Call g4f free provider
-        response = g4f.ChatCompletion.create(
-            model="openai",
+        completion = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
             messages=messages,
-            provider=g4f.Provider.PollinationsAI
+            max_tokens=512,
+            temperature=0.7
         )
-        
-        return jsonify({"response": response})
-        
+        reply = completion.choices[0].message.content
+        return jsonify({"response": reply})
     except Exception as e:
-        # Fallback if preferred provider fails
-        try:
-            print(f"Fallback due to {e}")
-            response = g4f.ChatCompletion.create(
-                model="openai",
-                messages=messages,
-                provider=g4f.Provider.PollinationsAI
-            )
-            return jsonify({"response": response})
-        except Exception as fallback_e:
-            return jsonify({"error": str(fallback_e)}), 500
+        print(f"[Chat] Groq error: {e}")
+        return jsonify({"error": "AI assistant is temporarily unavailable. Please try again shortly."}), 500
 
 @app.route('/api/disease-info', methods=['GET'])
 def get_disease_info():
-    """Generate detailed information about a disease using g4f."""
+    """Generate detailed information about a disease using Groq Cloud LLM."""
     disease = request.args.get('disease')
     if not disease:
         return jsonify({"error": "Disease parameter is required."}), 400
         
+    import re
+    prompt = (
+        f"Provide a comprehensive but concise summary of the disease '{disease}'. "
+        f"Format the output carefully in JSON with exactly four keys: "
+        f"'severity' (a short string like 'Low', 'Moderate', 'High', or 'Critical'), "
+        f"'description' (a 2-3 sentence overview), 'precautions' (an array of 3-5 strings), "
+        f"and 'diet' (an array of 3-5 strings of dietary advice). Respond with ONLY valid JSON, no markdown."
+    )
+    
     try:
-        prompt = (
-            f"Provide a comprehensive but concise summary of the disease '{disease}'. "
-            f"Format the output carefully in JSON with exactly four keys: "
-            f"'severity' (a short string like 'Low', 'Moderate', 'High', or 'Critical'), "
-            f"'description' (a 2-3 sentence overview), 'precautions' (an array of 3-5 strings), "
-            f"and 'diet' (an array of 3-5 strings of dietary advice). Ensure the response is valid JSON."
-        )
-        
-        response = g4f.ChatCompletion.create(
-            model="openai",
+        completion = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
-            provider=g4f.Provider.PollinationsAI
+            max_tokens=512,
+            temperature=0.3
         )
+        response_text = completion.choices[0].message.content.strip()
         
-        import json
-        import re
+        # Strip markdown code fences if present
+        json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+        json_str = json_match.group(1) if json_match else response_text
         
-        # Try to extract JSON from markdown formatting if present
-        json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
-        if json_match:
-            json_str = json_match.group(1)
-        else:
-            json_str = response
-            
-        try:
-            info_data = json.loads(json_str)
-            return jsonify(info_data)
-        except json.JSONDecodeError:
-            print(f"Failed to parse LLM JSON output: {response}")
-            return jsonify({"error": "Failed to parse info from AI provider."}), 500
-
+        info_data = json.loads(json_str)
+        return jsonify(info_data)
+    except json.JSONDecodeError as e:
+        print(f"[DiseaseInfo] JSON parse error: {e} | Response: {response_text}")
+        return jsonify({"error": "Failed to parse info from AI provider."}), 500
     except Exception as e:
-        print(f"Primary fetch failed: {e}")
-        # Fallback if preferred provider fails
-        try:
-            response = g4f.ChatCompletion.create(
-                model="openai",
-                messages=[{"role": "user", "content": prompt}],
-                provider=g4f.Provider.PollinationsAI
-            )
-            # Basic parsing assumption
-            import json
-            import re
-            json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
-            json_str = json_match.group(1) if json_match else response
-            info_data = json.loads(json_str)
-            return jsonify(info_data)
-        except Exception as fallback_e:
-            return jsonify({"error": f"Failed to fetch disease info: {str(fallback_e)}"}), 500
+        print(f"[DiseaseInfo] Groq error: {e}")
+        return jsonify({"error": f"Failed to fetch disease info."}), 500
 
 if __name__ == '__main__':
     # Run the app locally on port 5000

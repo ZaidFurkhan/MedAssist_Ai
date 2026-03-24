@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         guestModeBtn.addEventListener('click', () => {
             landingPage.classList.add('hidden');
             mainDashboard.classList.remove('hidden');
+            document.body.classList.add('mobile-dashboard-active');
             mainDashboard.style.animation = 'fadeIn 0.8s ease-out';
             window._isGuestMode = true;
             // Close auth modal if open
@@ -667,17 +668,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await response.json();
             
-            chatMessages.removeChild(typingDiv);
+            if (typingDiv.parentNode) typingDiv.remove();
 
             if (data.error) throw new Error(data.error);
             
             const reply = data.response;
+            if (!reply || reply.trim() === '') {
+                throw new Error("Received empty response from the AI assistant.");
+            }
             addMessage(reply, 'assistant');
             chatHistory.push({ role: 'assistant', content: reply });
 
         } catch (err) {
             console.error(err);
-            chatMessages.removeChild(typingDiv);
+            if (typingDiv.parentNode) typingDiv.remove();
             addMessage('Sorry, I encountered an error connecting to the AI server.', 'assistant');
             // Remove failed user message from history so they can try again
             chatHistory.pop();
@@ -914,4 +918,56 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('user-profile-btn')) {
         loadUserHistory();
     }
+
+    // --- Mobile Redesign Interactive Logic ---
+    const mobileChatFab = document.getElementById('mobile-chat-fab');
+    const closeChatMobile = document.getElementById('close-chat-mobile');
+    const sidebarBackBtn = document.getElementById('sidebar-back-btn');
+
+    // Sidebar "Back to Dashboard" logic
+    if (sidebarBackBtn) {
+        sidebarBackBtn.addEventListener('click', () => {
+            toggleSidebar(false);
+        });
+    }
+
+    // Floating Chat FAB logic
+    if (mobileChatFab) {
+        mobileChatFab.addEventListener('click', () => {
+            document.body.classList.add('mobile-chat-active');
+            document.getElementById('nav-chat').click();
+            
+            // Auto-focus chat input on mobile
+            setTimeout(() => {
+                document.getElementById('chat-input')?.focus();
+            }, 300);
+        });
+    }
+
+    // Mobile Chat "Back to Dashboard" logic
+    if (closeChatMobile) {
+        closeChatMobile.addEventListener('click', () => {
+            document.body.classList.remove('mobile-chat-active');
+            
+            // Explicitly restore Symptoms tab visibility to avoid "empty page" state
+            const symptomsTab = document.getElementById('nav-symptoms');
+            if (symptomsTab) {
+                symptomsTab.click();
+                // Ensure the content is active even if click() had issues
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById('tab-symptoms')?.classList.add('active');
+            }
+        });
+    }
+
+    // Audit: Handle window resizing to ensure mobile classes are cleaned up if switching to desktop
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 600) {
+            document.body.classList.remove('mobile-chat-active');
+        }
+    });
+
+    // Audit: Auto-trigger linear flow transitions for Diagnosis and Hospitals
+    // The existing predictBtn logic already calls document.getElementById('nav-diagnosis').click();
+    // On mobile, this will switch views without showing the tabs.
 });
