@@ -143,27 +143,43 @@ def index():
 
 
 def _background_send_verification_email(app_instance, to_email, code):
-    """Background worker to send a verification code email."""
+    """Background worker to send a verification code email via Brevo REST API over HTTPS."""
     try:
-        with app_instance.app_context():
-            msg = Message(
-                subject="Your Smart CDSS Verification Code",
-                recipients=[to_email]
-            )
-            msg.html = f"""
-            <div style="font-family:Inter,sans-serif;max-width:480px;margin:auto;padding:32px;">
-                <h2 style="color:#4F46E5;margin-bottom:8px;">Verify Your Email</h2>
-                <p style="color:#64748B;">Use the code below to complete your Smart CDSS registration:</p>
-                <div style="background:#EEF2FF;border-radius:12px;padding:24px 32px;text-align:center;margin:24px 0;">
-                    <span style="font-size:2.5rem;font-weight:800;letter-spacing:8px;color:#4F46E5;">{code}</span>
-                </div>
-                <p style="color:#94A3B8;font-size:0.85rem;">If you didn't register, please ignore this email.</p>
+        api_key = os.environ.get('BREVO_API_KEY') or os.environ.get('MAIL_PASSWORD')
+        sender_email = os.environ.get('MAIL_DEFAULT_SENDER')
+        
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "content-type": "application/json"
+        }
+        
+        html_content = f"""
+        <div style="font-family:Inter,sans-serif;max-width:480px;margin:auto;padding:32px;">
+            <h2 style="color:#4F46E5;margin-bottom:8px;">Verify Your Email</h2>
+            <p style="color:#64748B;">Use the code below to complete your Smart CDSS registration:</p>
+            <div style="background:#EEF2FF;border-radius:12px;padding:24px 32px;text-align:center;margin:24px 0;">
+                <span style="font-size:2.5rem;font-weight:800;letter-spacing:8px;color:#4F46E5;">{code}</span>
             </div>
-            """
-            mail.send(msg)
-            print(f"[EMAIL] Verification code sent to {to_email}")
+            <p style="color:#94A3B8;font-size:0.85rem;">If you didn't register, please ignore this email.</p>
+        </div>
+        """
+        
+        payload = {
+            "sender": {"email": sender_email, "name": "Smart CDSS"},
+            "to": [{"email": to_email}],
+            "subject": "Your Smart CDSS Verification Code",
+            "htmlContent": html_content
+        }
+        
+        response = http_requests.post(url, json=payload, headers=headers, timeout=10)
+        if response.status_code in [200, 201]:
+            print(f"[EMAIL API] Verification code sent to {to_email} via Port 443")
+        else:
+            print(f"[EMAIL API] Failed: HTTP {response.status_code} - {response.text}")
     except Exception as e:
-        print(f"[EMAIL] Failed to send email (SMTP Block/Timeout): {e}")
+        print(f"[EMAIL API] Exception: {e}")
 
 def send_verification_email(app_instance, to_email, code):
     """
@@ -177,7 +193,7 @@ def send_verification_email(app_instance, to_email, code):
     return True
         
 def _background_send_appointment_email(app_instance, appointment, email_type):
-    """Background worker to send appointment emails."""
+    """Background worker to send appointment emails via Brevo REST API over HTTPS."""
     try:
         with app_instance.app_context():
             if not appointment.user_id:
@@ -197,11 +213,12 @@ def _background_send_appointment_email(app_instance, appointment, email_type):
                 '1h_reminder': 'Upcoming Appointment (1h)'
             }
             
-            msg = Message(
-                subject=subject_map.get(email_type, 'Appointment Update'),
-                recipients=[user.email]
-            )
-            msg.html = f"""
+            api_key = os.environ.get('BREVO_API_KEY') or os.environ.get('MAIL_PASSWORD')
+            sender_email = os.environ.get('MAIL_DEFAULT_SENDER')
+            url = "https://api.brevo.com/v3/smtp/email"
+            headers = {"accept": "application/json", "api-key": api_key, "content-type": "application/json"}
+            
+            html_content = f"""
             <div style="font-family:Inter,sans-serif;max-width:550px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:16px;">
                 <h2 style="color:#4F46E5;margin-bottom:16px;">{title_map.get(email_type, 'Appointment Update')}</h2>
                 <p style="color:#475569;font-size:1.1rem;margin-bottom:24px;">Hello <strong>{appointment.patient_name}</strong>, here are the details of your appointment:</p>
@@ -216,10 +233,21 @@ def _background_send_appointment_email(app_instance, appointment, email_type):
                 </div>
             </div>
             """
-            mail.send(msg)
-            print(f"[EMAIL] Appointment {email_type} email sent to {user.email}")
+            
+            payload = {
+                "sender": {"email": sender_email, "name": "Smart CDSS"},
+                "to": [{"email": user.email}],
+                "subject": subject_map.get(email_type, 'Appointment Update'),
+                "htmlContent": html_content
+            }
+            
+            response = http_requests.post(url, json=payload, headers=headers, timeout=10)
+            if response.status_code in [200, 201]:
+                print(f"[EMAIL API] Appointment {email_type} email sent to {user.email}")
+            else:
+                print(f"[EMAIL API] Failed: HTTP {response.status_code} - {response.text}")
     except Exception as e:
-        print(f"[EMAIL] Failed to send appointment email (SMTP Block/Timeout): {e}")
+        print(f"[EMAIL API] Exception: {e}")
 
 def send_appointment_email(app_instance, appointment, email_type='confirmation'):
     """Spawns a background thread to send the appointment email, preventing web timeouts."""
