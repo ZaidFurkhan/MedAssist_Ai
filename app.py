@@ -168,13 +168,13 @@ def _background_send_verification_email(app_instance, to_email, code):
 def send_verification_email(app_instance, to_email, code):
     """
     Spawns a background thread attempting to send the email.
-    Instantly returns False so the UI provides the Fallback Demo Code,
-    preventing Render's SMTP block from crashing the main request.
+    Instantly returns True so the UI expects the real email. 
+    If it fails, it prints to the Render logs.
     """
     thread = threading.Thread(target=_background_send_verification_email, args=(app_instance, to_email, code))
     thread.daemon = True
     thread.start()
-    return False
+    return True
         
 def _background_send_appointment_email(app_instance, appointment, email_type):
     """Background worker to send appointment emails."""
