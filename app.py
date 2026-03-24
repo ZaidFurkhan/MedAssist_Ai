@@ -7,7 +7,9 @@ import random
 import string
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from groq import Groq
+import threading
 
 # Load environment variables
 load_dotenv()
@@ -139,8 +141,8 @@ def index():
     return render_template('index.html', user=user)
 
 
-def send_verification_email(app_instance, to_email, code):
-    """Send a verification code email via Flask-Mail (Gmail SMTP)."""
+def _background_send_verification_email(app_instance, to_email, code):
+    """Background worker to send a verification code email."""
     try:
         with app_instance.app_context():
             msg = Message(
@@ -159,34 +161,35 @@ def send_verification_email(app_instance, to_email, code):
             """
             mail.send(msg)
             print(f"[EMAIL] Verification code sent to {to_email}")
-            return True
     except Exception as e:
-        print(f"[EMAIL] Failed to send email: {type(e).__name__}: {e}")
-        return False
+        print(f"[EMAIL] Failed to send email (SMTP Block/Timeout): {e}")
+
+def send_verification_email(app_instance, to_email, code):
+    """
+    Spawns a background thread attempting to send the email.
+    Instantly returns False so the UI provides the Fallback Demo Code,
+    preventing Render's SMTP block from crashing the main request.
+    """
+    thread = threading.Thread(target=_background_send_verification_email, args=(app_instance, to_email, code))
+    thread.daemon = True
+    thread.start()
+    return False
         
-def send_appointment_email(app_instance, appointment, email_type='confirmation'):
-    """
-    Send an appointment email (confirmation or reminder).
-    email_type: 'confirmation', '12h_reminder', or '1h_reminder'
-    """
+def _background_send_appointment_email(app_instance, appointment, email_type):
+    """Background worker to send appointment emails."""
     try:
         with app_instance.app_context():
-            # Find the user's email
             if not appointment.user_id:
-                print(f"[EMAIL] No user_id for appointment {appointment.id}, skipping email.")
-                return False
-                
+                return
             user = User.query.get(appointment.user_id)
             if not user or not user.email:
-                print(f"[EMAIL] User not found for appointment {appointment.id}, skipping.")
-                return False
+                return
             
             subject_map = {
                 'confirmation': 'Appointment Confirmation - Smart CDSS',
                 '12h_reminder': 'Appointment Reminder (12 Hours) - Smart CDSS',
                 '1h_reminder': 'Appointment Reminder (1 Hour) - Smart CDSS'
             }
-            
             title_map = {
                 'confirmation': 'Appointment Confirmed',
                 '12h_reminder': 'Upcoming Appointment (12h)',
@@ -197,7 +200,6 @@ def send_appointment_email(app_instance, appointment, email_type='confirmation')
                 subject=subject_map.get(email_type, 'Appointment Update'),
                 recipients=[user.email]
             )
-            
             msg.html = f"""
             <div style="font-family:Inter,sans-serif;max-width:550px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:16px;">
                 <h2 style="color:#4F46E5;margin-bottom:16px;">{title_map.get(email_type, 'Appointment Update')}</h2>
@@ -205,36 +207,25 @@ def send_appointment_email(app_instance, appointment, email_type='confirmation')
                 
                 <div style="background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:24px;">
                     <table style="width:100%;border-collapse:collapse;">
-                        <tr>
-                            <td style="padding:8px 0;color:#64748B;width:120px;">Hospital:</td>
-                            <td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.hospital_name}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:8px 0;color:#64748B;">Doctor:</td>
-                            <td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.doctor_name}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:8px 0;color:#64748B;">Date:</td>
-                            <td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_date}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:8px 0;color:#64748B;">Time Slot:</td>
-                            <td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_time}</td>
-                        </tr>
+                        <tr><td style="padding:8px 0;color:#64748B;width:120px;">Hospital:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.hospital_name}</td></tr>
+                        <tr><td style="padding:8px 0;color:#64748B;">Doctor:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.doctor_name}</td></tr>
+                        <tr><td style="padding:8px 0;color:#64748B;">Date:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_date}</td></tr>
+                        <tr><td style="padding:8px 0;color:#64748B;">Time Slot:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_time}</td></tr>
                     </table>
                 </div>
-                
-                <p style="color:#64748B;font-size:0.9rem;border-top:1px solid #f1f5f9;padding-top:16px;">
-                    Thank you for choosing Smart CDSS. Please arrive 10 minutes before your scheduled time.
-                </p>
             </div>
             """
             mail.send(msg)
             print(f"[EMAIL] Appointment {email_type} email sent to {user.email}")
-            return True
     except Exception as e:
-        print(f"[EMAIL] Failed to send appointment email: {e}")
-        return False
+        print(f"[EMAIL] Failed to send appointment email (SMTP Block/Timeout): {e}")
+
+def send_appointment_email(app_instance, appointment, email_type='confirmation'):
+    """Spawns a background thread to send the appointment email, preventing web timeouts."""
+    thread = threading.Thread(target=_background_send_appointment_email, args=(app_instance, appointment, email_type))
+    thread.daemon = True
+    thread.start()
+    return True
 
 def parse_appointment_time(date_str, time_str):
     """
