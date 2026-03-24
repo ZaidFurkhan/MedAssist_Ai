@@ -635,8 +635,9 @@ def chat():
         reply = completion.choices[0].message.content
         return jsonify({"response": reply})
     except Exception as e:
-        print(f"[Chat] Groq error: {e}")
-        return jsonify({"error": "AI assistant is temporarily unavailable. Please try again shortly."}), 500
+        err_msg = str(e)
+        print(f"[Chat] Groq error: {err_msg}")
+        return jsonify({"error": f"AI error (for debugging): {err_msg}"}), 500
 
 @app.route('/api/disease-info', methods=['GET'])
 def get_disease_info():
