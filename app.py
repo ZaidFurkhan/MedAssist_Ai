@@ -44,9 +44,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # --- Flask-APScheduler Configuration ---
-scheduler = APScheduler()
-scheduler.init_app(app)
-scheduler.start()
+try:
+    scheduler = APScheduler()
+    scheduler.init_app(app)
+    scheduler.start()
+    print("[Scheduler] Started successfully.")
+except Exception as e:
+    print(f"[Scheduler] Warning: Could not start scheduler: {e}")
+    scheduler = None
 
 # Database Models
 class User(db.Model):
@@ -461,7 +466,6 @@ def predict():
         return jsonify({"error": str(e)}), 500
 
 import requests
-import g4f
 
 @app.route('/api/hospitals', methods=['GET'])
 def get_hospitals():
