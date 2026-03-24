@@ -25,9 +25,12 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev_key_for_demo_123')
 groq_client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
 
 # --- Flask-Mail Configuration (Gmail) ---
+# Using SSL (Port 465) instead of STARTTLS (Port 587) prevents cloud firewalls 
+# from inspecting the SMTP handshake and causing indefinite hanging/timeouts.
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')       # your Gmail address
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')       # Gmail App Password (not regular password)
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME') # same as username
@@ -41,6 +44,16 @@ if db_url.startswith("postgres://"):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# CRITICAL FIX for Neon DB on Render:
+# Neon automatically closes idle connections after a few minutes, causing Gunicorn to hang and timeout.
+# pool_pre_ping=True forces SQLAlchemy to check the connection before sending queries.
+# pool_recycle=280 reconnects silently every 4.6 minutes.
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 280,
+    'pool_timeout': 30,
+}
 db = SQLAlchemy(app)
 
 # --- Flask-APScheduler Configuration ---
