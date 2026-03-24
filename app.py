@@ -26,16 +26,17 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev_key_for_demo_123')
 # Initialize Groq client
 groq_client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
 
-# --- Flask-Mail Configuration (Gmail) ---
-# Using SSL (Port 465) instead of STARTTLS (Port 587) prevents cloud firewalls 
-# from inspecting the SMTP handshake and causing indefinite hanging/timeouts.
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')       # your Gmail address
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')       # Gmail App Password (not regular password)
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME') # same as username
+# --- Flask-Mail Configuration ---
+# Dynamically pull from environment variables to bypass cloud blocks. 
+# Datacenters (Render) are often blocked by Gmail, so using an SMTP Relay 
+# (like Brevo on port 587 or 2525) is the only way to send emails on the free tier.
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 465))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'False') == 'True'
+app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'True') == 'True'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', os.environ.get('MAIL_USERNAME'))
 mail = Mail(app)
 
 # Configure SQLAlchemy (PostgreSQL default for demo)
