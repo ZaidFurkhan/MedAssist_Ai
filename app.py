@@ -188,70 +188,63 @@ def send_verification_email(app_instance, to_email, code):
     """
     return _background_send_verification_email(app_instance, to_email, code)
         
-def _background_send_appointment_email(app_instance, appointment, email_type):
-    """Background worker to send appointment emails via Brevo REST API."""
+def send_appointment_email(appointment, user_email, email_type='confirmation'):
+    """Send appointment email synchronously via Brevo REST API."""
     try:
-        with app_instance.app_context():
-            if not appointment.user_id:
-                return
-            user = User.query.get(appointment.user_id)
-            if not user or not user.email:
-                return
+        if not user_email:
+            print("[EMAIL] No user email provided, skipping appointment email.")
+            return False
+
+        subject_map = {
+            'confirmation': 'Appointment Confirmation - Smart CDSS',
+            '12h_reminder': 'Appointment Reminder (12 Hours) - Smart CDSS',
+            '1h_reminder': 'Appointment Reminder (1 Hour) - Smart CDSS'
+        }
+        title_map = {
+            'confirmation': 'Appointment Confirmed',
+            '12h_reminder': 'Upcoming Appointment (12h)',
+            '1h_reminder': 'Upcoming Appointment (1h)'
+        }
+
+        html_content = f"""
+        <div style="font-family:Inter,sans-serif;max-width:550px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:16px;">
+            <h2 style="color:#4F46E5;margin-bottom:16px;">{title_map.get(email_type, 'Appointment Update')}</h2>
+            <p style="color:#475569;font-size:1.1rem;margin-bottom:24px;">Hello <strong>{appointment.patient_name}</strong>, here are the details of your appointment:</p>
             
-            subject_map = {
-                'confirmation': 'Appointment Confirmation - Smart CDSS',
-                '12h_reminder': 'Appointment Reminder (12 Hours) - Smart CDSS',
-                '1h_reminder': 'Appointment Reminder (1 Hour) - Smart CDSS'
-            }
-            title_map = {
-                'confirmation': 'Appointment Confirmed',
-                '12h_reminder': 'Upcoming Appointment (12h)',
-                '1h_reminder': 'Upcoming Appointment (1h)'
-            }
-            
-            html_content = f"""
-            <div style="font-family:Inter,sans-serif;max-width:550px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:16px;">
-                <h2 style="color:#4F46E5;margin-bottom:16px;">{title_map.get(email_type, 'Appointment Update')}</h2>
-                <p style="color:#475569;font-size:1.1rem;margin-bottom:24px;">Hello <strong>{appointment.patient_name}</strong>, here are the details of your appointment:</p>
-                
-                <div style="background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:24px;">
-                    <table style="width:100%;border-collapse:collapse;">
-                        <tr><td style="padding:8px 0;color:#64748B;width:120px;">Hospital:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.hospital_name}</td></tr>
-                        <tr><td style="padding:8px 0;color:#64748B;">Doctor:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.doctor_name}</td></tr>
-                        <tr><td style="padding:8px 0;color:#64748B;">Date:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_date}</td></tr>
-                        <tr><td style="padding:8px 0;color:#64748B;">Time Slot:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_time}</td></tr>
-                    </table>
-                </div>
+            <div style="background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:24px;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <tr><td style="padding:8px 0;color:#64748B;width:120px;">Hospital:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.hospital_name}</td></tr>
+                    <tr><td style="padding:8px 0;color:#64748B;">Doctor:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.doctor_name}</td></tr>
+                    <tr><td style="padding:8px 0;color:#64748B;">Date:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_date}</td></tr>
+                    <tr><td style="padding:8px 0;color:#64748B;">Time Slot:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_time}</td></tr>
+                </table>
             </div>
-            """
-            
-            headers = {
-                "accept": "application/json",
-                "api-key": get_brevo_api_key(),
-                "content-type": "application/json"
-            }
-            payload = {
-                "sender": {"email": BREVO_SENDER_EMAIL, "name": "Smart CDSS Appointments"},
-                "to": [{"email": user.email}],
-                "subject": subject_map.get(email_type, 'Appointment Update'),
-                "htmlContent": html_content
-            }
-            response = http_requests.post(BREVO_API_URL, json=payload, headers=headers, timeout=10)
-            
-            if response.status_code in (200, 201, 202):
-                print(f"[EMAIL] Appointment {email_type} email sent to {user.email} via Brevo REST API")
-            else:
-                print(f"[EMAIL] Brevo API Error: {response.text}")
-                
+        </div>
+        """
+
+        headers = {
+            "accept": "application/json",
+            "api-key": get_brevo_api_key(),
+            "content-type": "application/json"
+        }
+        payload = {
+            "sender": {"email": BREVO_SENDER_EMAIL, "name": "Smart CDSS Appointments"},
+            "to": [{"email": user_email}],
+            "subject": subject_map.get(email_type, 'Appointment Update'),
+            "htmlContent": html_content
+        }
+        response = http_requests.post(BREVO_API_URL, json=payload, headers=headers, timeout=10)
+
+        if response.status_code in (200, 201, 202):
+            print(f"[EMAIL] Appointment {email_type} email sent to {user_email} via Brevo REST API")
+            return True
+        else:
+            print(f"[EMAIL] Brevo API Error: {response.text}")
+            return False
+
     except Exception as e:
         print(f"[EMAIL] Failed to send appointment email via Brevo REST API: {e}")
-
-def send_appointment_email(app_instance, appointment, email_type='confirmation'):
-    """Spawns a background thread to send the appointment email, preventing web timeouts."""
-    thread = threading.Thread(target=_background_send_appointment_email, args=(app_instance, appointment, email_type))
-    thread.daemon = True
-    thread.start()
-    return True
+        return False
 
 def parse_appointment_time(date_str, time_str):
     """
@@ -284,13 +277,17 @@ def check_reminders():
             
             # 12h Reminder: time_to_appt <= 12 hours
             if not appt.reminder_12h_sent and timedelta(hours=0) < time_to_appt <= timedelta(hours=12):
-                if send_appointment_email(app, appt, email_type='12h_reminder'):
+                user = User.query.get(appt.user_id) if appt.user_id else None
+                user_email = user.email if user else None
+                if send_appointment_email(appt, user_email, email_type='12h_reminder'):
                     appt.reminder_12h_sent = True
                     db.session.commit()
             
             # 1h Reminder: time_to_appt <= 1 hour
             if not appt.reminder_1h_sent and timedelta(hours=0) < time_to_appt <= timedelta(hours=1):
-                if send_appointment_email(app, appt, email_type='1h_reminder'):
+                user = User.query.get(appt.user_id) if appt.user_id else None
+                user_email = user.email if user else None
+                if send_appointment_email(appt, user_email, email_type='1h_reminder'):
                     appt.reminder_1h_sent = True
                     db.session.commit()
 
@@ -433,7 +430,9 @@ def book_appointment():
         db.session.commit()
         
         # Send confirmation email
-        send_appointment_email(app, new_appointment, email_type='confirmation')
+        user = User.query.get(user_id) if user_id else None
+        user_email = user.email if user else None
+        send_appointment_email(new_appointment, user_email, email_type='confirmation')
         
         return jsonify({
             "message": "Appointment booked successfully!", 
