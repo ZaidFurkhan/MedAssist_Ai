@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session, redirect
 import os
 from dotenv import load_dotenv
-from flask_mail import Mail, Message
 import requests as http_requests
 import random
 import string
@@ -26,16 +25,20 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev_key_for_demo_123')
 # Initialize Groq client
 groq_client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
 
-# --- Flask-Mail Configuration ---
-# Force Implicit SSL (Port 465) to bypass STARTTLS timeouts/inspections on Render.
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', os.environ.get('MAIL_USERNAME'))
-mail = Mail(app)
+# --- Brevo API Configuration ---
+def get_brevo_api_key():
+    from dotenv import load_dotenv
+    import os
+    # Explicitly calculate absolute path to avoid directory mis-matches
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    load_dotenv(dotenv_path=env_path, override=True)
+    key = os.environ.get('BREVO_API_KEY', '')
+    if not key:
+        print(f"[EMAIL] FATAL ERROR: Could not find BREVO_API_KEY inside {env_path}")
+    return key
+
+BREVO_SENDER_EMAIL = os.environ.get('BREVO_SENDER_EMAIL', 'majidmaazzaidfurkhan@gmail.com')
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
 # Configure SQLAlchemy (PostgreSQL default for demo)
 # Automatically handle Render/Heroku 'postgres://' database URLs
@@ -141,41 +144,52 @@ def index():
 
 
 def _background_send_verification_email(app_instance, to_email, code):
-    """Background worker to send a verification code email via Flask-Mail."""
+    """Background worker to send a verification code email via Brevo REST API."""
     try:
-        with app_instance.app_context():
-            msg = Message(
-                subject="Your Smart CDSS Verification Code",
-                recipients=[to_email]
-            )
-            msg.html = f"""
-            <div style="font-family:Inter,sans-serif;max-width:480px;margin:auto;padding:32px;">
-                <h2 style="color:#4F46E5;margin-bottom:8px;">Verify Your Email</h2>
-                <p style="color:#64748B;">Use the code below to complete your Smart CDSS registration:</p>
-                <div style="background:#EEF2FF;border-radius:12px;padding:24px 32px;text-align:center;margin:24px 0;">
-                    <span style="font-size:2.5rem;font-weight:800;letter-spacing:8px;color:#4F46E5;">{code}</span>
-                </div>
-                <p style="color:#94A3B8;font-size:0.85rem;">If you didn't register, please ignore this email.</p>
+        html_content = f"""
+        <div style="font-family:Inter,sans-serif;max-width:480px;margin:auto;padding:32px;">
+            <h2 style="color:#4F46E5;margin-bottom:8px;">Verify Your Email</h2>
+            <p style="color:#64748B;">Use the code below to complete your Smart CDSS registration:</p>
+            <div style="background:#EEF2FF;border-radius:12px;padding:24px 32px;text-align:center;margin:24px 0;">
+                <span style="font-size:2.5rem;font-weight:800;letter-spacing:8px;color:#4F46E5;">{code}</span>
             </div>
-            """
-            mail.send(msg)
-            print(f"[EMAIL] Verification code sent to {to_email}")
+            <p style="color:#94A3B8;font-size:0.85rem;">If you didn't register, please ignore this email.</p>
+        </div>
+        """
+        headers = {
+            "accept": "application/json",
+            "api-key": get_brevo_api_key(),
+            "content-type": "application/json"
+        }
+        payload = {
+            "sender": {"email": BREVO_SENDER_EMAIL, "name": "Smart CDSS"},
+            "to": [{"email": to_email}],
+            "subject": "Your Smart CDSS Verification Code",
+            "htmlContent": html_content
+        }
+        # Don't technically need app_context here since REST API relies solely on env vars
+        response = http_requests.post(BREVO_API_URL, json=payload, headers=headers, timeout=10)
+        
+        if response.status_code in (200, 201, 202):
+            print(f"[EMAIL] Verification code sent to {to_email} via Brevo REST API")
+            return True
+        else:
+            print(f"[EMAIL] Brevo API Error: {response.text}")
+            return False
+            
     except Exception as e:
-        print(f"[EMAIL] Failed to send email (SMTP Block/Timeout): {e}")
+        print(f"[EMAIL] Failed to send email via Brevo REST API: {e}")
+        return False
 
 def send_verification_email(app_instance, to_email, code):
     """
-    Spawns a background thread attempting to send the email.
-    Instantly returns True so the UI expects the real email. 
-    If it fails, it prints to the Render logs.
+    Sends the verification email synchronously via Brevo REST API.
+    Returns True if successful, False if it fails.
     """
-    thread = threading.Thread(target=_background_send_verification_email, args=(app_instance, to_email, code))
-    thread.daemon = True
-    thread.start()
-    return True
+    return _background_send_verification_email(app_instance, to_email, code)
         
 def _background_send_appointment_email(app_instance, appointment, email_type):
-    """Background worker to send appointment emails via Flask-Mail."""
+    """Background worker to send appointment emails via Brevo REST API."""
     try:
         with app_instance.app_context():
             if not appointment.user_id:
@@ -195,11 +209,7 @@ def _background_send_appointment_email(app_instance, appointment, email_type):
                 '1h_reminder': 'Upcoming Appointment (1h)'
             }
             
-            msg = Message(
-                subject=subject_map.get(email_type, 'Appointment Update'),
-                recipients=[user.email]
-            )
-            msg.html = f"""
+            html_content = f"""
             <div style="font-family:Inter,sans-serif;max-width:550px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:16px;">
                 <h2 style="color:#4F46E5;margin-bottom:16px;">{title_map.get(email_type, 'Appointment Update')}</h2>
                 <p style="color:#475569;font-size:1.1rem;margin-bottom:24px;">Hello <strong>{appointment.patient_name}</strong>, here are the details of your appointment:</p>
@@ -214,10 +224,27 @@ def _background_send_appointment_email(app_instance, appointment, email_type):
                 </div>
             </div>
             """
-            mail.send(msg)
-            print(f"[EMAIL] Appointment {email_type} email sent to {user.email}")
+            
+            headers = {
+                "accept": "application/json",
+                "api-key": get_brevo_api_key(),
+                "content-type": "application/json"
+            }
+            payload = {
+                "sender": {"email": BREVO_SENDER_EMAIL, "name": "Smart CDSS Appointments"},
+                "to": [{"email": user.email}],
+                "subject": subject_map.get(email_type, 'Appointment Update'),
+                "htmlContent": html_content
+            }
+            response = http_requests.post(BREVO_API_URL, json=payload, headers=headers, timeout=10)
+            
+            if response.status_code in (200, 201, 202):
+                print(f"[EMAIL] Appointment {email_type} email sent to {user.email} via Brevo REST API")
+            else:
+                print(f"[EMAIL] Brevo API Error: {response.text}")
+                
     except Exception as e:
-        print(f"[EMAIL] Failed to send appointment email (SMTP Block/Timeout): {e}")
+        print(f"[EMAIL] Failed to send appointment email via Brevo REST API: {e}")
 
 def send_appointment_email(app_instance, appointment, email_type='confirmation'):
     """Spawns a background thread to send the appointment email, preventing web timeouts."""
@@ -294,17 +321,18 @@ def register():
         db.session.add(new_user)
         db.session.commit()
 
-        # Send OTP via Gmail
+        # Send OTP via Brevo API
         email_sent = send_verification_email(app, email, verification_code)
 
         if email_sent:
             return jsonify({"message": "Registration successful! Check your email for the OTP code."}), 201
         else:
-            # Fallback demo mode
+            # Delete the user if email failed to send, so they can try again
+            db.session.delete(new_user)
+            db.session.commit()
             return jsonify({
-                "message": "Registration successful! (Email unavailable - use code to verify)",
-                "demo_code": verification_code
-            }), 201
+                "error": "Failed to send verification email. Please check the terminal logs for the exact Brevo API Error!"
+            }), 500
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
