@@ -806,8 +806,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
+            
+            let data;
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                data = await res.json();
+            } else {
+                const textError = await res.text();
+                throw new Error(`Server Error (${res.status}): ${textError.substring(0, 100)}...`);
+            }
+            
+            if (!res.ok) throw new Error(data.error || "Registration failed.");
 
             alert(data.message);
             if (data.demo_code) console.log("Demo Verification Code:", data.demo_code);
@@ -832,8 +841,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, code })
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
+            
+            let data;
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                data = await res.json();
+            } else {
+                const textError = await res.text();
+                throw new Error(`Server Error (${res.status}): ${textError.substring(0, 100)}...`);
+            }
+
+            if (!res.ok) throw new Error(data.error || "Verification failed.");
 
             alert(data.message);
             showView('login');
