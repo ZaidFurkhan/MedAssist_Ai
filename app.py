@@ -262,7 +262,10 @@ def parse_appointment_time(date_str, time_str):
 def check_reminders():
     """Background job to check and send appointment reminders."""
     with app.app_context():
-        now = datetime.utcnow()
+        # Get current time in IST (User's location)
+        # Server (Render) is in UTC (usually), and users are in IST (+05:30)
+        now_ist = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        
         # Find all future appointments
         appointments = Appointment.query.filter(
             (Appointment.reminder_12h_sent == False) | (Appointment.reminder_1h_sent == False)
@@ -273,7 +276,9 @@ def check_reminders():
             if not appt_time:
                 continue
                 
-            time_to_appt = appt_time - now
+            # Both appt_time and now_ist are now effectively "local IST" naive datetimes
+            time_to_appt = appt_time - now_ist
+
             
             # 12h Reminder: time_to_appt <= 12 hours
             if not appt.reminder_12h_sent and timedelta(hours=0) < time_to_appt <= timedelta(hours=12):
