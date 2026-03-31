@@ -15,30 +15,81 @@ document.addEventListener('DOMContentLoaded', () => {
     const landingPage = document.getElementById('landing-page');
     const mainDashboard = document.getElementById('main-dashboard');
     const getStartedBtn = document.getElementById('get-started-btn');
-    const guestModeBtn = document.getElementById('guest-mode-btn');
+    const getDemoBtn = document.getElementById('get-demo-btn');
 
     // Handle Landing Page Transitions
+    const urlParams = new URLSearchParams(window.location.search);
+    const isDemoMode = urlParams.get('demo') === '1';
+
     if (getStartedBtn) {
         getStartedBtn.addEventListener('click', () => {
             document.getElementById('login-trigger-btn')?.click();
         });
     }
 
-    if (guestModeBtn) {
-        guestModeBtn.addEventListener('click', () => {
-            landingPage.classList.add('hidden');
-            mainDashboard.classList.remove('hidden');
-            document.body.classList.add('mobile-dashboard-active');
-            mainDashboard.style.animation = 'fadeIn 0.8s ease-out';
-            window._isGuestMode = true;
-            // Close auth modal if open
-            const authModal = document.getElementById('auth-modal');
-            if (authModal) authModal.style.display = 'none';
-
-            // Hide hospitals tab for guest mode
-            document.getElementById('nav-hospitals')?.classList.add('hidden');
+    // --- Demo Mode Initialization ---
+    if (isDemoMode) {
+        // Skip landing page immediately
+        landingPage.classList.add('hidden');
+        mainDashboard.classList.remove('hidden');
+        document.body.classList.add('mobile-dashboard-active');
+        document.getElementById('demo-badge')?.classList.remove('hidden');
+        
+        // Block restricted features with friendly alerts
+        const restrictedFeatures = ['nav-hospitals', 'view-more-predictions', 'view-more-appointments'];
+        restrictedFeatures.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    alert("This feature requires a registered account. Please sign up to explore history and bookings!");
+                }, true); // Use capture to intercept clicks
+            }
         });
     }
+
+    if (getDemoBtn) {
+        // Handled by <a> tag href="/?demo=1", but adding safety
+        getDemoBtn.onclick = () => {
+             window.location.href = '/?demo=1';
+             return false;
+        };
+    }
+
+    // Scroll Reveal Logic (Move up for priority)
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('active');
+            }
+        });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.reveal-item').forEach(item => {
+        revealObserver.observe(item);
+    });
+
+    // Handle Mobile FAB
+    document.getElementById('mobile-chat-fab')?.addEventListener('click', () => {
+        document.getElementById('nav-chat')?.click();
+        
+        // Hide FAB when chat is open on mobile
+        const fab = document.getElementById('mobile-chat-fab');
+        if (fab && window.innerWidth <= 768) {
+            fab.style.display = 'none';
+        }
+    });
+
+    // Close mobile chat button
+    document.getElementById('close-chat-mobile')?.addEventListener('click', () => {
+        // Just switch back to symptoms or wherever we were
+        document.getElementById('nav-symptoms').click();
+        
+        // Show FAB again
+        const fab = document.getElementById('mobile-chat-fab');
+        if (fab) fab.style.display = 'flex';
+    });
 
     let allSymptoms = [];
     const selectedSymptomsSet = new Set();
@@ -53,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 1. Fetch symptoms from backend
     async function loadSymptoms() {
+        if (!loadingState) return;
         try {
             const response = await fetch('/api/symptoms');
             const data = await response.json();
@@ -62,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
             allSymptoms = data.symptoms;
             renderSymptoms(allSymptoms);
             
-            // Hide loading state once done
             loadingState.classList.add('hidden');
         } catch (error) {
             console.error("Error loading symptoms:", error);
@@ -81,7 +132,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. Render symptoms to the DOM
     function renderSymptoms(symptomsToRender) {
-        symptomsGrid.innerHTML = ''; // Clear current grid
+        if (!symptomsGrid) return;
+        symptomsGrid.innerHTML = '';
         
         if (symptomsToRender.length === 0) {
             symptomsGrid.innerHTML = `
@@ -93,44 +145,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         symptomsToRender.forEach((symptom) => {
-            const id = `symptom-${symptom}`; // Ensure unique ID
+            const id = `symptom-${symptom}`;
             const formattedName = formatSymptomName(symptom);
 
             const div = document.createElement('div');
             div.className = 'symptom-item';
 
-            // Custom UI checkbox block
             const isChecked = selectedSymptomsSet.has(symptom) ? 'checked' : '';
             div.innerHTML = `
                 <input type="checkbox" id="${id}" name="symptoms" value="${symptom}" class="symptom-checkbox" ${isChecked}>
-                <label for="${id}" class="symptom-label">
-                    ${formattedName}
-                </label>
+                <label for="${id}" class="symptom-label">${formattedName}</label>
             `;
             
             symptomsGrid.appendChild(div);
         });
 
-        // Re-attach listener to new checkboxes
         attachCheckboxListeners();
     }
 
     // 3. Search / Filter logic
-    searchInput.addEventListener('input', (e) => {
+    searchInput?.addEventListener('input', (e) => {
         const term = e.target.value.toLowerCase().trim();
-        
         if (!term) {
             renderSymptoms(allSymptoms);
             return;
         }
-
-        // Filter: match either the raw value or the formatted value
         const filtered = allSymptoms.filter(s => {
             const rawMatch = s.toLowerCase().includes(term);
-            const formattedMatch = formatSymptomName(s).toLowerCase().includes(term);
-            return rawMatch || formattedMatch;
+            const displayMatch = formatSymptomName(s).toLowerCase().includes(term);
+            return rawMatch || displayMatch;
         });
-
         renderSymptoms(filtered);
     });
 
@@ -345,26 +389,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let html = '';
                 if (data.target_specialty) {
-                    html += `<div style="font-size:0.85rem;color:var(--primary-color);margin-bottom:1rem;background:#e0e7ff;padding:0.5rem 1rem;border-radius:8px;">💡 Prioritizing facilities with <b>${data.target_specialty}</b> departments for ${diseaseName}.</div>`;
+                    html += `<div class="hospital-specialty-notice">💡 Prioritizing facilities with <b>${data.target_specialty}</b> departments for ${diseaseName}.</div>`;
                 }
-                              data.hospitals.forEach(h => {
-                    const badge = h.is_specialized ? `<span style="background:var(--primary-color);color:white;font-size:0.7rem;padding:2px 8px;border-radius:12px;margin-left:8px;vertical-align:middle;">Recommended</span>` : '';
+
+                data.hospitals.forEach(h => {
+                    const badge = h.is_specialized ? `<span class="hospital-recommended-badge">Recommended</span>` : '';
                     
                     const mapQuery = encodeURIComponent(`${h.name} ${h.lat},${h.lon}`);
                     const appointmentBtn = window._isGuestMode
-                        ? `<button onclick="alert('Please login or create an account to book appointments.')" style="background: #CBD5E1; color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; cursor: not-allowed; font-size: 0.9rem;">🔒 Login to Book</button>`
-                        : `<button onclick="window.location.href = '/appointment?hospital=' + encodeURIComponent('${h.name.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" style="background: var(--primary-color); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; cursor: pointer; font-size: 0.9rem; transition: background 0.2s ease;">📅 Book Appointment</button>`;
+                        ? `<button onclick="alert('Please login or create an account to book appointments.')" class="hospital-book-btn disabled">🔒 Login to Book</button>`
+                        : `<button onclick="window.location.href = '/appointment?hospital=' + encodeURIComponent('${h.name.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" class="hospital-book-btn">📅 Book Appointment</button>`;
                     html += `
-                        <div class="hospital-card" style="background:var(--bg-color);border:1px solid var(--border-color);border-radius:12px;padding:1.25rem;margin-bottom:1rem;position:relative;">
-                            <h5 style="color:var(--primary-color);font-size:1.05rem;margin-bottom:0.5rem;margin-top:0;">
-                                ${h.name} ${badge}
-                            </h5>
-                            <p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:0.25rem;">📍 ${h.address}</p>
-                            ${h.phone !== 'Phone not available' ? `<p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;">📞 ${h.phone}</p>` : '<div style="margin-bottom: 1rem;"></div>'}
+                        <div class="hospital-card">
+                            <h5 class="hospital-name">${h.name} ${badge}</h5>
+                            <p class="hospital-address">📍 ${h.address}</p>
+                            ${h.phone !== 'Phone not available' ? `<p class="hospital-phone">📞 ${h.phone}</p>` : '<div class="hospital-phone placeholder"></div>'}
                             
-                            <div style="display: flex; gap: 1rem; align-items: center; margin-top: auto; flex-wrap: wrap;">
+                            <div class="hospital-card-actions">
                                 ${appointmentBtn}
-                                <a href="https://www.google.com/maps/search/?api=1&query=${mapQuery}" target="_blank" style="font-size:0.85rem;color:var(--primary-color);text-decoration:none;font-weight:600;">
+                                <a href="https://www.google.com/maps/search/?api=1&query=${mapQuery}" target="_blank" class="hospital-map-link">
                                     🗺️ View on Map ↗
                                 </a>
                             </div>
@@ -715,10 +758,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (show) {
             userSidebar.classList.add('active');
             sidebarOverlay.classList.add('active');
-            loadUserHistory(); // Refresh history when opening
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            loadUserHistory();
         } else {
             userSidebar.classList.remove('active');
             sidebarOverlay.classList.remove('active');
+            document.body.style.overflow = ''; // Restore scrolling
         }
     }
 
@@ -733,6 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeSidebarBtn.addEventListener('click', () => toggleSidebar(false));
     }
 
+    // Sidebar Click-Away Logic
     if (sidebarOverlay) {
         sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
     }
@@ -774,7 +820,7 @@ document.addEventListener('DOMContentLoaded', () => {
     switchToLogin.addEventListener('click', (e) => { e.preventDefault(); showView('login'); });
 
     // Handle Login
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
+    document.getElementById('login-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
@@ -795,10 +841,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Handle Register
-    document.getElementById('register-form').addEventListener('submit', async (e) => {
+    document.getElementById('register-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('register-email').value;
-        const password = document.getElementById('register-password').value;
+        const email = document.getElementById('register-email')?.value;
+        const password = document.getElementById('register-password')?.value;
 
         try {
             const res = await fetch('/api/register', {
@@ -830,10 +876,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Handle Verify
-    document.getElementById('verify-form').addEventListener('submit', async (e) => {
+    document.getElementById('verify-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = e.target.dataset.email;
-        const code = document.getElementById('verify-code').value;
+        const code = document.getElementById('verify-code')?.value;
 
         try {
             const res = await fetch('/api/verify', {
@@ -943,39 +989,76 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebarBackBtn = document.getElementById('sidebar-back-btn');
 
     // Sidebar "Back to Dashboard" logic
-    if (sidebarBackBtn) {
-        sidebarBackBtn.addEventListener('click', () => {
-            toggleSidebar(false);
-        });
-    }
+    sidebarBackBtn?.addEventListener('click', () => {
+        toggleSidebar(false);
+    });
 
     // Floating Chat FAB logic
-    if (mobileChatFab) {
-        mobileChatFab.addEventListener('click', () => {
-            document.body.classList.add('mobile-chat-active');
-            document.getElementById('nav-chat').click();
-            
-            // Auto-focus chat input on mobile
-            setTimeout(() => {
-                document.getElementById('chat-input')?.focus();
-            }, 300);
-        });
-    }
+    mobileChatFab?.addEventListener('click', () => {
+        document.body.classList.add('mobile-chat-active');
+        document.getElementById('nav-chat')?.click();
+        
+        // Auto-focus chat input on mobile
+        setTimeout(() => {
+            document.getElementById('chat-input')?.focus();
+        }, 300);
+    });
 
     // Mobile Chat "Back to Dashboard" logic
-    if (closeChatMobile) {
-        closeChatMobile.addEventListener('click', () => {
-            document.body.classList.remove('mobile-chat-active');
-            
-            // Explicitly restore Symptoms tab visibility to avoid "empty page" state
-            const symptomsTab = document.getElementById('nav-symptoms');
-            if (symptomsTab) {
-                symptomsTab.click();
-                // Ensure the content is active even if click() had issues
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                document.getElementById('tab-symptoms')?.classList.add('active');
-            }
+    closeChatMobile?.addEventListener('click', () => {
+        document.body.classList.remove('mobile-chat-active');
+        
+        // Explicitly restore Symptoms tab visibility to avoid "empty page" state
+        const symptomsTab = document.getElementById('nav-symptoms');
+        if (symptomsTab) {
+            symptomsTab.click();
+            // Ensure the content is active even if click() had issues
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-symptoms')?.classList.add('active');
+        }
+    });
+
+    // --- Showcase Slider Logic ---
+    const slides = document.querySelectorAll('.showcase-slide');
+    const dots = document.querySelectorAll('.nav-dot');
+    let currentSlide = 0;
+    let slideInterval;
+
+    function showSlide(index) {
+        if (slides.length === 0) return;
+        
+        slides.forEach(s => s.classList.remove('active'));
+        dots.forEach(d => d.classList.remove('active'));
+        
+        slides[index].classList.add('active');
+        dots[index].classList.add('active');
+        currentSlide = index;
+    }
+
+    function nextSlide() {
+        let next = (currentSlide + 1) % slides.length;
+        showSlide(next);
+    }
+
+    function startSlideTimer() {
+        stopSlideTimer();
+        slideInterval = setInterval(nextSlide, 5000);
+    }
+
+    function stopSlideTimer() {
+        if (slideInterval) clearInterval(slideInterval);
+    }
+
+    dots.forEach(dot => {
+        dot.addEventListener('click', () => {
+            const target = parseInt(dot.dataset.target);
+            showSlide(target);
+            startSlideTimer(); // Reset timer on manual click
         });
+    });
+
+    if (slides.length > 0) {
+        startSlideTimer();
     }
 
     // Audit: Handle window resizing to ensure mobile classes are cleaned up if switching to desktop
@@ -984,8 +1067,4 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.remove('mobile-chat-active');
         }
     });
-
-    // Audit: Auto-trigger linear flow transitions for Diagnosis and Hospitals
-    // The existing predictBtn logic already calls document.getElementById('nav-diagnosis').click();
-    // On mobile, this will switch views without showing the tabs.
 });

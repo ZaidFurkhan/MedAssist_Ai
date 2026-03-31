@@ -6,9 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Clinical Decision Support System</title>
     <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script>document.documentElement.classList.add('js-enabled');</script>
     <!-- Markdown Parser -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -18,38 +20,56 @@
     <div class="background-shape shape-1"></div>
     <div class="background-shape shape-2"></div>
     <div class="background-shape shape-3"></div>
+    <div class="background-blob blob-1"></div>
+    <div class="background-blob blob-2"></div>
+    <div class="background-blob blob-3"></div>
+    <div class="background-blob blob-4"></div>
 
     <!-- Landing Page Section -->
     <div id="landing-page" class="landing-section {% if user %}hidden{% endif %}">
         <div class="landing-container">
-            <header class="landing-header">
+            <header class="landing-header reveal-item" data-reveal="up">
                 <div class="logo-large">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                        stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
                     </svg>
                 </div>
                 <h1>Smart Clinical Decision Support System</h1>
-                <p class="tagline">Empowering Healthcare with Intelligent Diagnostics</p>
+                <p class="tagline">Next-Generation Healthcare Intelligence</p>
             </header>
 
             <section class="hero-content">
-                <div class="hero-text">
-                    <h2>Advanced AI for Precise Health Insights</h2>
-                    <p>Experience the future of clinical decision making. Our system analyzes symptoms with
-                        state-of-the-art machine learning to provide rapid, accurate guidance.</p>
+                <div class="hero-text reveal-item" data-reveal="left">
+                    <h2>Advanced AI for <br><span style="color: var(--primary)">Precise Health</span> Insights</h2>
+                    <p>Empower your clinical practice with our sophisticated decision support platform. Fast, accurate, and built for modern healthcare professionals.</p>
                     <div class="cta-group">
-                        <div class="cta-buttons-row">
-                            <button class="primary-btn btn-lg" id="get-started-btn">Get Started &nbsp;</button>
-                        </div>
+                        <button id="get-started-btn" class="primary-btn btn-lg">
+                            Get Started Now
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </button>
+                        <a href="/?demo=1" id="get-demo-btn" class="secondary-btn btn-lg">
+                            Get Demo
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polygon points="10 8 16 12 10 16 10 8"></polygon>
+                            </svg>
+                        </a>
+                    </div>
+                    <p class="cta-disclaimer">The demo environment does not persist history or bookings.</p>
+                    <div style="display: flex; gap: 2rem; align-items: center; opacity: 0.7">
+                        <div><strong>99.4%</strong> <br><small>Accuracy</small></div>
+                        <div style="width: 1px; height: 20px; background: var(--border)"></div>
+                        <div><strong>50k+</strong> <br><small>Cases Analyzed</small></div>
                     </div>
                 </div>
-                <div class="hero-visual">
+                <div class="hero-visual reveal-item" data-reveal="right">
                     <div class="mockup-container">
-                        <img src="{{ url_for('static', filename='img/showcase-main.png') }}" alt="Diagnosis Dashboard"
-                            class="main-mockup">
-                        <div class="floating-badge badge-1">AI Powered</div>
-                        <div class="floating-badge badge-2">99% Accuracy</div>
+                        <div class="floating-badge badge-1">Real-time Analysis</div>
+                        <div class="floating-badge badge-2">AI Diagnosis</div>
+                        <img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=1000" alt="Dashboard Mockup" class="main-mockup">
                     </div>
                 </div>
             </section>
@@ -59,80 +79,81 @@
             <section class="showcase-section">
                 <div class="section-tag">Interactive Platform</div>
                 <h2>A Complete Diagnostic Ecosystem</h2>
-                <div class="showcase-grid">
-                    <div class="showcase-item" data-reveal="left">
-                        <div class="showcase-info">
-                            <h3>01. Symptom Profiling</h3>
-                            <p>Intelligent symptom selection with demographic context for personalized results.</p>
-                        </div>
-                        <div class="showcase-image-wrapper">
-                            <img src="{{ url_for('static', filename='img/showcase-diagnosis.png')}}"
-                                alt="Symptom Selection" class="showcase-img">
-                        </div>
-                    </div>
+                
+                <div class="showcase-viewport">
+                    <div class="showcase-stage floating-panel reveal-item" data-reveal="up">
+                        <div class="showcase-content-wrapper">
+                            <!-- Items will be managed by JS for cross-fading -->
+                            <div class="showcase-slide active" data-index="0">
+                                <div class="slide-info">
+                                    <span class="slide-num">01</span>
+                                    <h3>Symptom Profiling</h3>
+                                    <p>Intelligent symptom selection with demographic context for personalized results.</p>
+                                </div>
+                                <div class="slide-visual">
+                                    <img src="{{ url_for('static', filename='img/showcase-diagnosis.png')}}" alt="Symptom Selection">
+                                </div>
+                            </div>
+                            
+                            <div class="showcase-slide" data-index="1">
+                                <div class="slide-info">
+                                    <span class="slide-num">02</span>
+                                    <h3>Deep Insights</h3>
+                                    <p>Detailed analysis of conditions, including precautions and lifestyle guidance.</p>
+                                </div>
+                                <div class="slide-visual">
+                                    <img src="{{ url_for('static', filename='img/showcase-symptoms.png') }}" alt="Medical Insights">
+                                </div>
+                            </div>
 
-                    <div class="showcase-item" data-reveal="right">
-                        <div class="showcase-image-wrapper">
-                            <img src="{{ url_for('static', filename='img/showcase-symptoms.png') }}"
-                                alt="Medical Insights" class="showcase-img">
-                        </div>
-                        <div class="showcase-info">
-                            <h3>02. Deep Insights</h3>
-                            <p>Detailed analysis of conditions, including precautions and lifestyle guidance.</p>
-                        </div>
-                    </div>
+                            <div class="showcase-slide" data-index="2">
+                                <div class="slide-info">
+                                    <span class="slide-num">03</span>
+                                    <h3>Facility Locator</h3>
+                                    <p>Instant booking and directions to specialized healthcare providers near you.</p>
+                                </div>
+                                <div class="slide-visual">
+                                    <img src="{{ url_for('static', filename='img/showcase-hospitals.png') }}" alt="Hospital Locator">
+                                </div>
+                            </div>
 
-                    <div class="showcase-item" data-reveal="left">
-                        <div class="showcase-info">
-                            <h3>03. Facility Locator</h3>
-                            <p>Instant booking and directions to specialized healthcare providers near you.</p>
+                            <div class="showcase-slide" data-index="3">
+                                <div class="slide-info">
+                                    <span class="slide-num">04</span>
+                                    <h3>24/7 Consultation</h3>
+                                    <p>Your personal medical AI ready to answer follow-up questions at any time.</p>
+                                </div>
+                                <div class="slide-visual">
+                                    <img src="{{ url_for('static', filename='img/showcase-chat.png') }}" alt="AI Health Assistant">
+                                </div>
+                            </div>
                         </div>
-                        <div class="showcase-image-wrapper">
-                            <img src="{{ url_for('static', filename='img/showcase-hospitals.png') }}"
-                                alt="Hospital Locator" class="showcase-img">
-                        </div>
-                    </div>
-
-                    <div class="showcase-item" data-reveal="right">
-                        <div class="showcase-image-wrapper">
-                            <img src="{{ url_for('static', filename='img/showcase-chat.png') }}"
-                                alt="AI Health Assistant" class="showcase-img">
-                        </div>
-                        <div class="showcase-info">
-                            <h3>04. 24/7 Consultation</h3>
-                            <p>Your personal medical AI ready to answer follow-up questions at any time.</p>
-                        </div>
-                    </div>
-
-                    <div class="showcase-item" data-reveal="left">
-                        <div class="showcase-info">
-                            <h3>05. Effortless Booking</h3>
-                            <p>Secure your consultation in seconds with our integrated appointment scheduling system.
-                            </p>
-                        </div>
-                        <div class="showcase-image-wrapper">
-                            <img src="{{ url_for('static', filename='img/showcase-booking.png') }}"
-                                alt="Appointment Booking" class="showcase-img">
+                        
+                        <div class="showcase-nav">
+                            <div class="nav-dot active" data-target="0"></div>
+                            <div class="nav-dot" data-target="1"></div>
+                            <div class="nav-dot" data-target="2"></div>
+                            <div class="nav-dot" data-target="3"></div>
                         </div>
                     </div>
                 </div>
             </section>
 
             <section class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">📝</div>
-                    <h3>Symptom Analysis</h3>
-                    <p>Deep scan of your reported symptoms against thousands of clinical patterns.</p>
+                <div class="feature-card reveal-item" data-reveal="up">
+                    <div class="feature-icon">🧠</div>
+                    <h3>Comprehensive Symptoms</h3>
+                    <p>Intelligent profiling of **130+ medical symptoms** with demographic context for personalized results.</p>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🤖</div>
-                    <h3>AI Assistant</h3>
-                    <p>24/7 interactive health assistant powered by advanced LLMs for instant answers.</p>
+                <div class="feature-card reveal-item" data-reveal="up" style="transition-delay: 0.1s">
+                    <div class="feature-icon">🎯</div>
+                    <h3>99.4% Precision</h3>
+                    <p>Compare various decision trees to get the top 3 diagnosis with real-time confidence scores.</p>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🏥</div>
-                    <h3>Facility Locator</h3>
-                    <p>Find and book appointments at specialized clinics in your immediate area.</p>
+                <div class="feature-card reveal-item" data-reveal="up" style="transition-delay: 0.2s">
+                    <div class="feature-icon">📅</div>
+                    <h3>Seamless Booking</h3>
+                    <p>Book appointments easily with quick confirmations and automated email reminders.</p>
                 </div>
             </section>
         </div>
@@ -145,14 +166,15 @@
             <header class="header">
                 <div class="header-left">
                     <div class="logo">
-
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
                         </svg>
                     </div>
                     <div>
-                        <h1>Smart Clinical Decision Support System</h1>
+                        <div style="display: flex; align-items: center; gap: 0.625rem;">
+                            <h1>Smart Clinical Decision Support System</h1>
+                            <span id="demo-badge" class="demo-badge hidden">DEMO</span>
+                        </div>
                         <p class="subtitle">AI-powered medical guidance</p>
                     </div>
                 </div>
@@ -266,6 +288,28 @@
                                     </div>
                                 </form>
                             </div>
+                            {% if user %}
+                            <!-- Mobile: Find Hospital CTA at bottom of Symptoms -->
+                            <div class="mobile-hospital-cta symptoms-cta">
+                                <div class="mobile-hospital-cta-inner">
+                                    <div class="mobile-hospital-cta-icon">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                            <polyline points="9 22 9 12 15 12 15 22"/>
+                                        </svg>
+                                    </div>
+                                    <div class="mobile-hospital-cta-text">
+                                        <span class="mobile-hospital-cta-title">Find Nearby Hospitals</span>
+                                        <span class="mobile-hospital-cta-sub">Quickly locate facilities</span>
+                                    </div>
+                                    <button class="mobile-hospital-cta-btn" onclick="document.getElementById('nav-hospitals').click()">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endif %}
                         </div>
 
                         <!-- Tab 1: Overview (Diagnosis Results) -->
@@ -370,15 +414,26 @@
                                 </div>
 
                             </div>
-                            <!-- Bottom transition button for mobile linear flow (Logged-in users only) -->
                             {% if user %}
-                            <div class="mobile-nav-buttons" style="margin-top: 2rem; padding: 0 1rem 1.5rem 1rem;">
-                                <button class="primary-btn w-full" onclick="document.getElementById('nav-hospitals').click()" style="justify-content: center; width: 100%;">
-                                    Find Nearby Hospitals
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                                    </svg>
-                                </button>
+                            <!-- Mobile: Find Hospital CTA at bottom of diagnosis -->
+                            <div class="mobile-hospital-cta">
+                                <div class="mobile-hospital-cta-inner">
+                                    <div class="mobile-hospital-cta-icon">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                            <polyline points="9 22 9 12 15 12 15 22"/>
+                                        </svg>
+                                    </div>
+                                    <div class="mobile-hospital-cta-text">
+                                        <span class="mobile-hospital-cta-title">Find Nearby Hospitals</span>
+                                        <span class="mobile-hospital-cta-sub">Book appointments near you</span>
+                                    </div>
+                                    <button class="mobile-hospital-cta-btn" onclick="document.getElementById('nav-hospitals').click()">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                             {% endif %}
                         </div>
@@ -429,18 +484,20 @@
                                     </div>
                                 </div>
                                 <form id="chat-form" class="chat-input-area chat-input-docked">
-                                    <input type="text" id="chat-input" placeholder="Message AI Assistant..."
-                                        autocomplete="off">
-                                    <button type="button" id="chat-mic-btn" class="mic-btn" title="Voice Search">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                            stroke-linejoin="round">
-                                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                                            <line x1="12" y1="19" x2="12" y2="23"></line>
-                                            <line x1="8" y1="23" x2="16" y2="23"></line>
-                                        </svg>
-                                    </button>
+                                    <div class="chat-input-wrapper" style="flex: 1; position: relative;">
+                                        <input type="text" id="chat-input" placeholder="Message AI Assistant..."
+                                            autocomplete="off">
+                                        <button type="button" id="chat-mic-btn" class="mic-btn" title="Voice Search">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                                <line x1="12" y1="19" x2="12" y2="23"></line>
+                                                <line x1="8" y1="23" x2="16" y2="23"></line>
+                                            </svg>
+                                        </button>
+                                    </div>
                                     <button type="submit" id="chat-send-btn" disabled>
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
                                             stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -476,11 +533,6 @@
                     </div>
                     <button type="submit" class="primary-btn w-full">Login</button>
                 </form>
-                <div class="guest-mode-row" style="margin-top: 1rem; text-align: center;">
-                    <button class="secondary-btn w-full" id="guest-mode-btn">Continue in Guest Mode</button>
-                    <p class="cta-note" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">*
-                        Guest mode does not save history or appointments.</p>
-                </div>
                 <p class="auth-switch">Don't have an account? <a href="#" id="switch-to-register">Register here</a></p>
             </div>
 
@@ -527,7 +579,6 @@
                     <span class="user-email-value">{{ user.email if user else 'Guest' }}</span>
                 </div>
             </div>
-            <button id="close-sidebar" class="close-sidebar-btn" title="Close menu">&times;</button>
         </div>
 
         <div class="sidebar-content">
@@ -537,7 +588,6 @@
                         <span class="section-icon">📜</span>
                         <h4>Diagnosis History</h4>
                     </div>
-                    <span class="accordion-arrow">▼</span>
                 </div>
                 <div id="sidebar-predictions-container" class="collapsible-content">
                     <div id="sidebar-predictions-list" class="sidebar-history-list">
@@ -553,7 +603,6 @@
                         <span class="section-icon">📅</span>
                         <h4>Your Appointments</h4>
                     </div>
-                    <span class="accordion-arrow">▼</span>
                 </div>
                 <div id="sidebar-appointments-container" class="collapsible-content">
                     <div id="sidebar-appointments-list" class="sidebar-history-list">
@@ -566,24 +615,11 @@
 
         <div class="sidebar-footer">
             <button class="back-dashboard-btn" id="sidebar-back-btn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
-                </svg>
                 Back to Dashboard
-            </button>
-            <button id="dark-mode-toggle" class="dark-mode-btn">
-                <span id="dark-mode-icon"></span>
-                <span id="dark-mode-label">Dark Mode</span>
             </button>
             {% if user %}
             <button id="logout-btn" class="logout-btn-sidebar">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                    <polyline points="16 17 21 12 16 7"></polyline>
-                    <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
-                <span>Logout</span>
+                Logout
             </button>
             {% endif %}
         </div>
