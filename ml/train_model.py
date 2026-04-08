@@ -33,9 +33,16 @@ def train_and_save_model(data_path, model_path, symptoms_path):
         # Split data for evaluation (80% training, 20% testing)
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         
-        # Initialize and train the Random Forest Classifier
-        print("Training Random Forest Classifier...")
-        clf = RandomForestClassifier(n_estimators=100, random_state=42)
+        # Initialize and train the Random Forest Classifier with pruning and balancing
+        print("Training Random Forest Classifier with hyperparameter tuning...")
+        clf = RandomForestClassifier(
+            n_estimators=200, 
+            max_depth=50, 
+            min_samples_split=5, 
+            min_samples_leaf=2, 
+            class_weight="balanced", 
+            random_state=42
+        )
         clf.fit(X_train, y_train)
         
         # Evaluate the model

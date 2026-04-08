@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mainDashboard.classList.remove('hidden');
         document.body.classList.add('mobile-dashboard-active');
         document.getElementById('demo-badge')?.classList.remove('hidden');
-        
+
         // Block restricted features with friendly alerts
         const restrictedFeatures = ['nav-hospitals', 'view-more-predictions', 'view-more-appointments'];
         restrictedFeatures.forEach(id => {
@@ -52,8 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (getDemoBtn) {
         // Handled by <a> tag href="/?demo=1", but adding safety
         getDemoBtn.onclick = () => {
-             window.location.href = '/?demo=1';
-             return false;
+            window.location.href = '/?demo=1';
+            return false;
         };
     }
 
@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle Mobile FAB
     document.getElementById('mobile-chat-fab')?.addEventListener('click', () => {
         document.getElementById('nav-chat')?.click();
-        
+
         // Hide FAB when chat is open on mobile
         const fab = document.getElementById('mobile-chat-fab');
         if (fab && window.innerWidth <= 768) {
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('close-chat-mobile')?.addEventListener('click', () => {
         // Just switch back to symptoms or wherever we were
         document.getElementById('nav-symptoms').click();
-        
+
         // Show FAB again
         const fab = document.getElementById('mobile-chat-fab');
         if (fab) fab.style.display = 'flex';
@@ -108,12 +108,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/api/symptoms');
             const data = await response.json();
-            
+
             if (data.error) throw new Error(data.error);
-            
+
             allSymptoms = data.symptoms;
             renderSymptoms(allSymptoms);
-            
+
             loadingState.classList.add('hidden');
         } catch (error) {
             console.error("Error loading symptoms:", error);
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderSymptoms(symptomsToRender) {
         if (!symptomsGrid) return;
         symptomsGrid.innerHTML = '';
-        
+
         if (symptomsToRender.length === 0) {
             symptomsGrid.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 2rem;">
@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <input type="checkbox" id="${id}" name="symptoms" value="${symptom}" class="symptom-checkbox" ${isChecked}>
                 <label for="${id}" class="symptom-label">${formattedName}</label>
             `;
-            
+
             symptomsGrid.appendChild(div);
         });
 
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Update count and button active state
     function attachCheckboxListeners() {
         const checkboxes = document.querySelectorAll('.symptom-checkbox');
-        
+
         checkboxes.forEach(box => {
             box.removeEventListener('change', handleCheckboxChange); // prevent dupes
             box.addEventListener('change', handleCheckboxChange);
@@ -195,9 +195,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             selectedSymptomsSet.delete(checkbox.value);
         }
-        
+
         countValue.textContent = selectedSymptomsSet.size;
-        
+
         if (selectedSymptomsSet.size > 0) {
             predictBtn.disabled = false;
             clearBtn.disabled = false;
@@ -211,17 +211,17 @@ document.addEventListener('DOMContentLoaded', () => {
     clearBtn.addEventListener('click', () => {
         // Clear the Set
         selectedSymptomsSet.clear();
-        
+
         // Uncheck all visible checkboxes
         const checkboxes = document.querySelectorAll('.symptom-checkbox');
         checkboxes.forEach(box => {
             box.checked = false;
         });
-        
+
         // Clear Dropdowns
         document.getElementById('age-select').value = '';
         document.getElementById('gender-select').value = '';
-        
+
         // Update UI counters and buttons
         countValue.textContent = '0';
         predictBtn.disabled = true;
@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Hide post-prediction tabs (Except Hospitals which is now always available)
         document.getElementById('nav-diagnosis').classList.add('hidden');
-        
+
         // Switch back to symptoms tab
         document.getElementById('nav-symptoms').click();
     });
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. Submit Form to API
     predictionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         // Gather selected symptoms from Set (not just DOM, because search might hide them)
         const selectedSymptoms = Array.from(selectedSymptomsSet);
 
@@ -272,15 +272,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Show Result Overlay
             diseaseName.textContent = data.prediction;
             currentPrediction = data.prediction; // Share with chatbot
-            
+
             // Render Top Predictions as Master List
             const listContainer = document.getElementById('conditions-list-container');
             const detailsWrapper = document.getElementById('details-container-wrapper');
             const emptyState = document.getElementById('details-empty-state');
             const selectedHeader = document.getElementById('selected-diagnosis-header');
-            
+
             listContainer.innerHTML = ''; // clear old
-            
+
             if (data.top_predictions && data.top_predictions.length > 0) {
                 data.top_predictions.forEach((p, index) => {
                     const card = document.createElement('div');
@@ -295,27 +295,27 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="height: 100%; width: ${p.probability}%; background: var(--primary-color); border-radius: 4px;"></div>
                         </div>
                     `;
-                    
+
                     // Click handler for details view
                     card.addEventListener('click', () => {
                         // styling
                         document.querySelectorAll('.condition-card').forEach(c => c.classList.remove('active'));
                         card.classList.add('active');
-                        
+
                         // update details pane
                         emptyState.style.display = 'none';
                         selectedHeader.style.display = 'flex';
                         detailsWrapper.style.display = 'block';
-                        
+
                         document.getElementById('disease-name').textContent = p.disease;
                         currentPrediction = p.disease; // update chatbot context
-                        
+
                         fetchDiseaseDetails(p.disease);
                     });
-                    
+
                     listContainer.appendChild(card);
                 });
-                
+
                 // Auto-select the top result
                 const firstCard = listContainer.querySelector('.condition-card');
                 if (firstCard) firstCard.click();
@@ -329,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Switch to Diagnosis tab
             document.getElementById('nav-diagnosis').click();
-            
+
             // Try fetching nearby hospitals automatically (with context)
             requestLocation(data.prediction);
 
@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hospitalsContainer = document.getElementById('hospitals-container');
         const hospitalsList = document.getElementById('hospitals-list');
         hospitalsContainer.classList.remove('hidden');
-        
+
         // Show loading state
         hospitalsList.innerHTML = `
             <div class="loading-hospitals">
@@ -360,13 +360,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p style="text-align:center;font-size:0.9rem;color:var(--text-secondary);">Locating your position...</p>
             </div>
         `;
-        
+
         const loadingText = hospitalsList.querySelector('p');
         const hospitalSteps = [
             "Scanning for healthcare facilities...",
             "Retrieving contact details..."
         ];
-        
+
         let step = 0;
         const hInterval = setInterval(() => {
             if (step < hospitalSteps.length) {
@@ -379,14 +379,14 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => res.json())
             .then(data => {
                 if (data.error) throw new Error(data.error);
-                
+
                 clearInterval(hInterval);
-                
+
                 if (!data.hospitals || data.hospitals.length === 0) {
                     hospitalsList.innerHTML = '<div class="loading-hospitals">No hospitals found nearby.</div>';
                     return;
                 }
-                
+
                 let html = '';
                 if (data.target_specialty) {
                     html += `<div class="hospital-specialty-notice">💡 Prioritizing facilities with <b>${data.target_specialty}</b> departments for ${diseaseName}.</div>`;
@@ -394,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 data.hospitals.forEach(h => {
                     const badge = h.is_specialized ? `<span class="hospital-recommended-badge">Recommended</span>` : '';
-                    
+
                     const mapQuery = encodeURIComponent(`${h.name} ${h.lat},${h.lon}`);
                     const appointmentBtn = window._isGuestMode
                         ? `<button onclick="alert('Please login or create an account to book appointments.')" class="hospital-book-btn disabled">🔒 Login to Book</button>`
@@ -447,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => {
             tabBtns.forEach(b => b.classList.remove('active'));
             tabContents.forEach(c => c.classList.remove('active'));
-            
+
             btn.classList.add('active');
             const target = btn.getAttribute('data-target');
             document.getElementById(target).classList.add('active');
@@ -467,10 +467,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchDiseaseDetails(diseaseName) {
         const loadingDiv = document.getElementById('disease-details-loading');
         const contentDiv = document.getElementById('disease-details-content');
-        
+
         loadingDiv.classList.remove('hidden');
         contentDiv.classList.add('hidden');
-        
+
         // Dynamic loading text to improve perceived performance
         const loadingText = loadingDiv.querySelector('p');
         const originalText = loadingText.textContent;
@@ -480,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "Generating dietary guidelines...",
             "Finalizing comprehensive report..."
         ];
-        
+
         let step = 0;
         const progressInterval = setInterval(() => {
             if (step < loadingSteps.length) {
@@ -488,33 +488,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 step++;
             }
         }, 2500);
-        
+
         try {
             const res = await fetch(`/api/disease-info?disease=${encodeURIComponent(diseaseName)}`);
             const data = await res.json();
-            
+
             if (data.error) throw new Error(data.error);
-            
+
             document.getElementById('detail-description').textContent = data.description || 'No description available.';
-            
+
             // Handle severity badge
             const severityEl = document.getElementById('disease-severity');
             if (data.severity) {
                 const sev = data.severity.toLowerCase();
                 severityEl.textContent = data.severity;
-                severityEl.className = 'severity-badge'; 
-                
+                severityEl.className = 'severity-badge';
+
                 if (sev.includes('low')) severityEl.classList.add('severity-low');
                 else if (sev.includes('moderate')) severityEl.classList.add('severity-moderate');
                 else if (sev.includes('high')) severityEl.classList.add('severity-high');
                 else if (sev.includes('critical')) severityEl.classList.add('severity-critical');
                 else severityEl.classList.add('severity-moderate');
-                
+
                 severityEl.classList.remove('hidden');
             } else {
                 severityEl.classList.add('hidden');
             }
-            
+
             const precList = document.getElementById('detail-precautions');
             precList.innerHTML = '';
             (data.precautions || ['No specific precautions listed.']).forEach(p => {
@@ -522,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 li.textContent = p;
                 precList.appendChild(li);
             });
-            
+
             const dietList = document.getElementById('detail-diet');
             dietList.innerHTML = '';
             (data.diet || ['No specific diet listed.']).forEach(d => {
@@ -530,13 +530,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 li.textContent = d;
                 dietList.appendChild(li);
             });
-            
+
             // --- Text-to-Speech (TTS) Logic ---
             const readAloudBtn = document.getElementById('read-aloud-btn');
             if (readAloudBtn) {
                 // Ensure existing speech is stopped when switching diseases
                 window.speechSynthesis.cancel();
-                
+
                 // Define the click handler dynamically for this specific prediction
                 readAloudBtn.onclick = () => {
                     if (window.speechSynthesis.speaking) {
@@ -552,15 +552,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         const textToRead = document.getElementById('detail-description').textContent;
                         const utterance = new SpeechSynthesisUtterance(textToRead);
-                        
+
                         // Try to use a natural English voice if available
                         const voices = window.speechSynthesis.getVoices();
                         const englishVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural')));
                         if (englishVoice) utterance.voice = englishVoice;
-                        
+
                         utterance.rate = 1.0;
                         utterance.pitch = 1.0;
-                        
+
                         // Change button state to indicate reading
                         readAloudBtn.innerHTML = `
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -569,7 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </svg>
                             Stop
                         `;
-                        
+
                         // Reset button when speech finishes naturally
                         utterance.onend = () => {
                             readAloudBtn.innerHTML = `
@@ -580,12 +580,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 Read
                             `;
                         };
-                        
+
                         window.speechSynthesis.speak(utterance);
                     }
                 };
             }
-            
+
             clearInterval(progressInterval);
             loadingText.textContent = originalText;
             loadingDiv.classList.add('hidden');
@@ -604,7 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatInput = document.getElementById('chat-input');
     const chatSendBtn = document.getElementById('chat-send-btn');
     const chatMicBtn = document.getElementById('chat-mic-btn');
-    
+
     let chatHistory = [];
     let currentPrediction = null;
 
@@ -617,27 +617,27 @@ document.addEventListener('DOMContentLoaded', () => {
         recognition.interimResults = false;
         recognition.lang = 'en-US';
 
-        recognition.onstart = function() {
+        recognition.onstart = function () {
             chatMicBtn.classList.add('recording');
             chatInput.placeholder = "Listening...";
         };
 
-        recognition.onresult = function(event) {
+        recognition.onresult = function (event) {
             const transcript = event.results[0][0].transcript;
             chatInput.value = transcript;
             chatSendBtn.disabled = false;
-            
+
             // Optionally, auto-submit the form after speaking:
             // chatForm.dispatchEvent(new Event('submit'));
         };
 
-        recognition.onerror = function(event) {
+        recognition.onerror = function (event) {
             console.error('Speech recognition error:', event.error);
             chatMicBtn.classList.remove('recording');
             chatInput.placeholder = "Message AI Assistant...";
         };
 
-        recognition.onend = function() {
+        recognition.onend = function () {
             chatMicBtn.classList.remove('recording');
             chatInput.placeholder = "Message AI Assistant...";
         };
@@ -664,13 +664,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function addMessage(content, role) {
         const msgDiv = document.createElement('div');
         msgDiv.className = `message ${role}-msg`;
-        
+
         if (role === 'assistant' && typeof marked !== 'undefined') {
             msgDiv.innerHTML = marked.parse(content);
         } else {
             msgDiv.textContent = content;
         }
-        
+
         chatMessages.appendChild(msgDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -696,13 +696,18 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Build payload injected with system context if prediction exists
             let payload = [...chatHistory];
-            if (currentPrediction && payload.length === 1) {
-                // Prepend context on first message
-                payload.unshift({
-                    role: "user",
-                    content: `System Context: The user was just diagnosed with ${currentPrediction}. Act as a helpful medical AI assistant. Answer their questions intelligently. Keep responses concise.`
-                });
-            }
+            // Always prepend strong system context to the payload
+            const diagContext = currentPrediction ? ` The user's AI-predicted diagnosis is: ${currentPrediction}.` : ``;
+            payload.unshift({
+                role: "system",
+                content: `You are a helpful, calming, and reliable medical AI assistant.${diagContext} You must stay strictly on the topic of healthcare. DO NOT provide false information; if unsure, simply state that you do not know. 
+To avoid causing panic while remaining safe, ALWAYS structure your medical advice using these exactly 4 sections:
+1. **Possible condition** (frame this as a possibility, not a definite diagnosis)
+2. **What to do now** (calm, actionable home-care or next steps)
+3. **When to see a doctor** (routine check-up guidelines)
+4. **Emergency warning signs** (objective symptoms that require immediate care)
+Keep your tone balanced, user-friendly, and concise.`
+            });
 
             const response = await fetch('/api/chat', {
                 method: 'POST',
@@ -710,11 +715,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ messages: payload })
             });
             const data = await response.json();
-            
+
             if (typingDiv.parentNode) typingDiv.remove();
 
             if (data.error) throw new Error(data.error);
-            
+
             const reply = data.response;
             if (!reply || reply.trim() === '') {
                 throw new Error("Received empty response from the AI assistant.");
@@ -852,7 +857,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });
-            
+
             let data;
             const contentType = res.headers.get("content-type");
             if (contentType && contentType.includes("application/json")) {
@@ -861,12 +866,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const textError = await res.text();
                 throw new Error(`Server Error (${res.status}): ${textError.substring(0, 100)}...`);
             }
-            
+
             if (!res.ok) throw new Error(data.error || "Registration failed.");
 
             alert(data.message);
             if (data.demo_code) console.log("Demo Verification Code:", data.demo_code);
-            
+
             // Store email for verification view
             document.getElementById('verify-form').dataset.email = email;
             showView('verify');
@@ -887,7 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, code })
             });
-            
+
             let data;
             const contentType = res.headers.get("content-type");
             if (contentType && contentType.includes("application/json")) {
@@ -921,7 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const apptList = document.getElementById('sidebar-appointments-list');
         const viewMorePreds = document.getElementById('view-more-predictions');
         const viewMoreAppts = document.getElementById('view-more-appointments');
-        
+
         if (!predList || !apptList) return;
 
         try {
@@ -929,7 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) return;
 
             const data = await res.json();
-            
+
             // Predictions (Limit to 3)
             if (data.predictions && data.predictions.length > 0) {
                 predList.innerHTML = '';
@@ -946,7 +951,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                     predList.appendChild(item);
                 });
-                
+
                 viewMorePreds.classList.remove('hidden');
             } else {
                 predList.innerHTML = '<p class="empty-text-sidebar">No recent predictions.</p>';
@@ -978,6 +983,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- Logout Logic ---
+    document.querySelectorAll('#logout-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                const response = await fetch('/api/logout', { method: 'POST' });
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    console.error("Logout failed", await response.text());
+                }
+            } catch (err) {
+                console.error("Logout error:", err);
+            }
+        });
+    });
+
     // Initial load if user is already logged in
     if (document.getElementById('user-profile-btn')) {
         loadUserHistory();
@@ -997,7 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
     mobileChatFab?.addEventListener('click', () => {
         document.body.classList.add('mobile-chat-active');
         document.getElementById('nav-chat')?.click();
-        
+
         // Auto-focus chat input on mobile
         setTimeout(() => {
             document.getElementById('chat-input')?.focus();
@@ -1007,7 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mobile Chat "Back to Dashboard" logic
     closeChatMobile?.addEventListener('click', () => {
         document.body.classList.remove('mobile-chat-active');
-        
+
         // Explicitly restore Symptoms tab visibility to avoid "empty page" state
         const symptomsTab = document.getElementById('nav-symptoms');
         if (symptomsTab) {
@@ -1026,10 +1048,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showSlide(index) {
         if (slides.length === 0) return;
-        
+
         slides.forEach(s => s.classList.remove('active'));
         dots.forEach(d => d.classList.remove('active'));
-        
+
         slides[index].classList.add('active');
         dots[index].classList.add('active');
         currentSlide = index;

@@ -98,9 +98,13 @@ def predict_disease(user_symptoms, age=None, gender=None, model_path=None, sympt
         # Get top 3 predictions that have > 0 probability
         top_predictions = [{"disease": dp[0], "probability": round(dp[1] * 100, 2)} for dp in sorted_probs[:3] if dp[1] > 0]
         
+        # Check if model's highest confidence is extremely low
+        if not top_predictions or top_predictions[0]["probability"] < 15.0:
+            return {"error": "Insufficient symptoms provided for an accurate diagnosis. The model's confidence is too low. Please add more specific symptoms so the AI can distinguish the exact condition."}
+        
         # Return the predicted prognosis (disease) and probabilities
         return {
-            "prediction": prediction[0],
+            "prediction": sorted_probs[0][0], # Ensure it matches top prob
             "top_predictions": top_predictions
         }
         

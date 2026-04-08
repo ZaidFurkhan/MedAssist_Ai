@@ -458,7 +458,11 @@ def get_symptoms():
     try:
         with open(SYMPTOMS_PATH, 'rb') as f:
             symptoms = pickle.load(f)
-        return jsonify({"symptoms": symptoms})
+        
+        # Filter out age_... and gender_... from being displayed as symptoms
+        filtered_symptoms = [s for s in symptoms if not (s.startswith('age_') or s.startswith('gender_'))]
+            
+        return jsonify({"symptoms": filtered_symptoms})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -664,7 +668,7 @@ def chat():
         completion = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=messages,
-            max_tokens=512,
+            max_tokens=655,
             temperature=0.7
         )
         reply = completion.choices[0].message.content
