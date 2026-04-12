@@ -2377,8 +2377,6 @@ body::after {
         border-radius: 12px;
     }
 
-    /* Title block → Hidden on mobile dashboard for maximum space */
-    .header-left > div:not(.logo) h1,
     .header-left > div:not(.logo) .subtitle {
         display: none;
     }
@@ -3071,7 +3069,7 @@ body::after {
 
     #chat-input {
         border-radius: 16px;
-        padding: 0.875rem 1rem;
+        padding: 0.875rem 3rem 0.875rem 1rem;
     }
 
     /* --- Sidebar: Full-width on mobile --- */

@@ -508,7 +508,7 @@ import requests
 
 @app.route('/api/hospitals', methods=['GET'])
 def get_hospitals():
-    """Fetch nearby hospitals using Overpass API, prioritizing relevant specialties."""
+    """Fetch nearby hospitals using Geoapify Places API, prioritizing relevant specialties."""
     lat = request.args.get('lat')
     lon = request.args.get('lon')
     disease = request.args.get('disease', '').lower()
@@ -517,108 +517,87 @@ def get_hospitals():
         return jsonify({"error": "Latitude and longitude are required."}), 400
         
     try:
-        lat = float(lat)
-        lon = float(lon)
-        radius = 10000 # 10km search
+        api_key = os.environ.get('GEOAPIFY_API_KEY')
+        if not api_key:
+            return jsonify({"error": "Geoapify API key not configured."}), 500
+
+        # Geoapify Categories for medical facilities
+        categories = "healthcare.hospital,healthcare.clinic_or_praxis"
+        radius = 5000 # 5km circular search
         
-        # Map common predicted diseases to OpenStreetMap healthcare specialties
-        specialty_map = {
-            'arthritis': 'orthopaedics',
-            'heart attack': 'cardiology',
-            'hypertension': 'cardiology',
-            'diabetes': 'endocrinology',
-            'migraine': 'neurology',
-            'stroke': 'neurology',
-            'asthma': 'pulmonology',
-            'tuberculosis': 'pulmonology',
-            'pneumonia': 'pulmonology',
-            'allergy': 'allergology',
-            'psoriasis': 'dermatology',
-            'acne': 'dermatology',
-            'fungal infection': 'dermatology',
-            'gastroenteritis': 'gastroenterology',
-            'peptic ulcer diseae': 'gastroenterology',
-            'jaundice': 'gastroenterology',
-            'hepatitis': 'hepatology',
-            'urinary tract infection': 'urology',
-            'cervical spondylosis': 'orthopaedics',
-            'osteorthritis': 'orthopaedics'
+        # Proximity bias to ensure nearest results come first
+        geoapify_url = "https://api.geoapify.com/v2/places"
+        params = {
+            "categories": categories,
+            "filter": f"circle:{lon},{lat},{radius}",
+            "bias": f"proximity:{lon},{lat}",
+            "limit": 20,
+            "apiKey": api_key
         }
         
-        # Determine if we should search for a specific tag
-        tag_filter = ""
-        specialty = None
-        for d_key, s_val in specialty_map.items():
-            if d_key in disease:
-                specialty = s_val
-                break
-                
-        if specialty:
-            # Query explicitly for the specialty, or generic hospitals as fallback
-            overpass_query = f"""
-            [out:json];
-            (
-              node["healthcare:speciality"="{specialty}"](around:{radius},{lat},{lon});
-              way["healthcare:speciality"="{specialty}"](around:{radius},{lat},{lon});
-              relation["healthcare:speciality"="{specialty}"](around:{radius},{lat},{lon});
-              
-              node["amenity"="hospital"](around:{radius},{lat},{lon});
-              way["amenity"="hospital"](around:{radius},{lat},{lon});
-              relation["amenity"="hospital"](around:{radius},{lat},{lon});
-            );
-            out center;
-            """
-        else:
-            # Generic hospital query
-            overpass_query = f"""
-            [out:json];
-            (
-              node["amenity"="hospital"](around:{radius},{lat},{lon});
-              way["amenity"="hospital"](around:{radius},{lat},{lon});
-              relation["amenity"="hospital"](around:{radius},{lat},{lon});
-              
-              node["amenity"="clinic"](around:{radius},{lat},{lon});
-              way["amenity"="clinic"](around:{radius},{lat},{lon});
-              relation["amenity"="clinic"](around:{radius},{lat},{lon});
-            );
-            out center;
-            """
-            
-        overpass_url = "http://overpass-api.de/api/interpreter"
-        response = requests.get(overpass_url, params={'data': overpass_query}, timeout=15)
+        response = http_requests.get(geoapify_url, params=params, timeout=20)
         response.raise_for_status()
         data = response.json()
         
+        # Mapping predicted diseases to keywords for sorting
+        specialty_keywords = {
+            'arthritis': ['orthopaedics', 'joint', 'arthritis'],
+            'heart attack': ['cardiology', 'heart', 'cardiac'],
+            'hypertension': ['cardiology', 'heart'],
+            'diabetes': ['endocrinology', 'diabetes'],
+            'migraine': ['neurology', 'brain'],
+            'stroke': ['neurology', 'emergency'],
+            'asthma': ['pulmonology', 'lung', 'respiratory'],
+            'tuberculosis': ['pulmonology', 'chest'],
+            'pneumonia': ['pulmonology', 'respiratory'],
+            'psoriasis': ['dermatology', 'skin'],
+            'acne': ['dermatology', 'skin'],
+            'fungal infection': ['dermatology', 'skin'],
+            'gastroenteritis': ['gastroenterology', 'stomach'],
+            'peptic ulcer diseae': ['gastroenterology'],
+            'jaundice': ['gastroenterology', 'liver'],
+            'hepatitis': ['hepatology', 'liver'],
+            'urinary tract infection': ['urology', 'kidney'],
+            'cervical spondylosis': ['orthopaedics', 'spine'],
+            'osteorthritis': ['orthopaedics', 'joint']
+        }
+        
+        target_keywords = []
+        for d_key, k_vals in specialty_keywords.items():
+            if d_key in disease:
+                target_keywords = k_vals
+                break
+            
+        
         hospitals = []
-        for element in data.get('elements', []):
-            tags = element.get('tags', {})
-            name = tags.get('name')
-            
-            if not name:
-                continue
+        for feature in data.get('features', []):
+            prop = feature.get('properties', {})
+            name = prop.get('name')
+            if not name: continue
                 
-            h_lat = element.get('lat', element.get('center', {}).get('lat'))
-            h_lon = element.get('lon', element.get('center', {}).get('lon'))
+            h_lat = prop.get('lat')
+            h_lon = prop.get('lon')
             
-            h_specialty = tags.get('healthcare:speciality', '').lower()
-            
-            # Prioritize sorting: If it matches our specialty, flag it
-            is_specialized = bool(specialty and specialty in h_specialty)
+            # Check for specialty matching
+            is_specialized = False
+            if target_keywords:
+                full_text = (name + " " + " ".join(prop.get('categories', []))).lower()
+                if any(kw in full_text for kw in target_keywords):
+                    is_specialized = True
             
             hospitals.append({
                 "name": name,
                 "lat": h_lat,
                 "lon": h_lon,
-                "address": tags.get('addr:full', tags.get('addr:street', 'Address not available')),
-                "phone": tags.get('phone', 'Phone not available'),
+                "address": prop.get('formatted', prop.get('address_line2', 'Address not available')),
+                "phone": prop.get('contact', {}).get('phone', 'Phone not available'),
                 "is_specialized": is_specialized,
-                "specialty_tag": tags.get('healthcare:speciality', 'General')
+                "distance": prop.get('distance', 99999) # Distance in meters
             })
             
-        # Sort: Specialized facilities first
-        hospitals.sort(key=lambda x: str(x['is_specialized']), reverse=True)
+        # Priority 1: Specialized, Priority 2: Nearest
+        hospitals.sort(key=lambda x: (not x['is_specialized'], x['distance']))
             
-        # Return top 10 unique names
         seen = set()
         clean_hospitals = []
         for h in hospitals:
@@ -626,7 +605,7 @@ def get_hospitals():
                 seen.add(h['name'])
                 clean_hospitals.append(h)
                 
-        return jsonify({"hospitals": clean_hospitals[:10], "target_specialty": specialty})
+        return jsonify({"hospitals": clean_hospitals[:10], "search_radius": radius})
         
     except Exception as e:
         return jsonify({"error": f"Failed to fetch hospitals: {str(e)}"}), 500
