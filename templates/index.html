@@ -29,19 +29,25 @@
     <!-- Landing Page Section -->
     <div id="landing-page" class="landing-section {% if user %}hidden{% endif %}">
         <div class="landing-container">
-            <header class="landing-header reveal-item" data-reveal="up">
-                <div class="logo-large">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                    </svg>
+            <nav class="landing-navbar reveal-item" data-reveal="down">
+                <div class="brand">
+                    <div class="logo-nav">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                        </svg>
+                    </div>
+                    <span class="brand-name">MedAssist.ai</span>
                 </div>
-                <h1>MedAssist.ai</h1>
-                <p class="tagline">Next-Generation Healthcare Intelligence</p>
-            </header>
+                <div class="nav-actions">
+                    <a href="#showcase" class="nav-link">About Us</a>
+                    <a href="#contact" class="nav-link">Contact</a>
+                </div>
+            </nav>
 
             <section class="hero-content">
                 <div class="hero-text reveal-item" data-reveal="left">
+                    <div class="hero-badge">Next-Generation Healthcare Intelligence</div>
                     <h2>Advanced AI for <br><span style="color: var(--primary)">Precise Health</span> Insights</h2>
                     <p>Empower your clinical practice with our sophisticated decision support platform. Fast, accurate,
                         and built for modern healthcare professionals.</p>
@@ -82,9 +88,12 @@
 
             <div class="section-divider"></div>
 
-            <section class="showcase-section">
-                <div class="section-tag">Interactive Platform</div>
+            <section id="showcase" class="showcase-section">
+                <div class="section-tag">About MedAssist.ai</div>
                 <h2>A Complete Diagnostic Ecosystem</h2>
+                <p class="section-description">Empowering healthcare through intelligence. Our clinical decision support
+                    system leverages state-of-the-art AI to transform complex medical data into actionable insights,
+                    facilitating faster, more precise diagnosis and personalized patient care for everyone.</p>
 
                 <div class="showcase-viewport">
                     <div class="showcase-stage floating-panel reveal-item" data-reveal="up">
@@ -143,7 +152,7 @@
                             <div class="showcase-slide" data-index="4">
                                 <div class="slide-info">
                                     <span class="slide-num">05</span>
-                                    <h3>24/7 Consultation</h3>
+                                    <h3>AI Consultation</h3>
                                     <p>Your personal medical AI ready to answer follow-up questions at any time.</p>
                                 </div>
                                 <div class="slide-visual">
@@ -168,7 +177,7 @@
                 <div class="feature-card reveal-item" data-reveal="up">
                     <div class="feature-icon">🧠</div>
                     <h3>Comprehensive Symptoms</h3>
-                    <p>Intelligent profiling of **130+ medical symptoms** with demographic context for personalized
+                    <p>Intelligent profiling of "130+ medical symptoms" with demographic context for personalized
                         results.</p>
                 </div>
                 <div class="feature-card reveal-item" data-reveal="up" style="transition-delay: 0.1s">
@@ -179,7 +188,113 @@
                 <div class="feature-card reveal-item" data-reveal="up" style="transition-delay: 0.2s">
                     <div class="feature-icon">📅</div>
                     <h3>Seamless Booking</h3>
-                    <p>Book appointments easily with quick confirmations and automated email reminders.</p>
+                    <p>Effortlessly schedule your consultations with top medical experts in just a few simple clicks.
+                    </p>
+                </div>
+                <div class="feature-card reveal-item" data-reveal="up" style="transition-delay: 0.3s">
+                    <div class="feature-icon">🔔</div>
+                    <h3>Smart Notifications</h3>
+                    <p>Stay informed with "instant email confirmations" and "automated appointment reminders" for every
+                        visit.</p>
+                </div>
+            </section>
+
+            <!-- Contact Us Section - Modern Split Layout -->
+            <section id="contact" class="contact-section reveal-item" data-reveal="up">
+                <div class="contact-container-refined">
+                    <div class="contact-header">
+                        <div class="section-tag">Get in Touch</div>
+                        <h2>Connecting You with <br><span style="color: var(--primary)">Expert Care</span></h2>
+                        <p>Our support team is here to help you with platform features or technical assistance.
+                        </p>
+                    </div>
+
+                    <div class="contact-main">
+                        <div class="contact-info-list">
+                            <div class="contact-item">
+                                <div class="contact-item-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path
+                                            d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z">
+                                        </path>
+                                        <polyline points="22,6 12,13 2,6"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="contact-item-text">
+                                    <label>Email Us</label>
+                                    <span>support@medassist.ai</span>
+                                </div>
+                            </div>
+                            <div class="contact-item">
+                                <div class="contact-item-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path
+                                            d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z">
+                                        </path>
+                                    </svg>
+                                </div>
+                                <div class="contact-item-text">
+                                    <label>Phone Support</label>
+                                    <span>+1 (555) 000-HEALTH</span>
+                                </div>
+                            </div>
+                            <div class="contact-item">
+                                <div class="contact-item-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                </div>
+                                <div class="contact-item-text">
+                                    <label>Visit Us</label>
+                                    <span>Silicon Valley, CA, USA</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="contact-visual">
+                            <div class="visual-card">
+
+                                <div id="contact-form-container">
+                                    <form id="contact-form" class="quick-contact-form">
+                                        <div class="form-group-glass">
+                                            <input type="email" placeholder="Your email address" required>
+                                        </div>
+                                        <div class="form-group-glass">
+                                            <textarea placeholder="How can we help?" rows="3" required></textarea>
+                                        </div>
+                                        <button type="submit" class="contact-send-btn">
+                                            <span>Send Message</span>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </div>
+
+                                <div id="contact-success" class="contact-success-state hidden">
+                                    <div class="success-icon-wrap">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="3" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                    </div>
+                                    <h3>Message Sent!</h3>
+                                    <p>Thank you for reaching out. Our support team will respond to you shortly.
+                                    </p>
+                                    <button type="button" class="reset-contact-btn" id="reset-contact-form">Send
+                                        Another</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
@@ -207,13 +322,16 @@
                 </div>
                 <div class="header-right">
                     <!-- Global Chat Back Button (Visible only on mobile when chat is active) -->
-                    <button class="mobile-back-btn" id="global-chat-back" onclick="document.getElementById('nav-symptoms').click()" style="display: none; padding: 0.5rem 1.2rem; background: var(--primary-light); color: var(--primary); border: none; border-radius: 12px; font-weight: bold; cursor: pointer; align-items: center; gap: 0.5rem;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    <button class="mobile-back-btn" id="global-chat-back"
+                        onclick="document.getElementById('nav-symptoms').click()"
+                        style="display: none; padding: 0.5rem 1.2rem; background: var(--primary-light); color: var(--primary); border: none; border-radius: 12px; font-weight: bold; cursor: pointer; align-items: center; gap: 0.5rem;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M19 12H5M12 19l-7-7 7-7" />
                         </svg>
                         Back
                     </button>
-                    
+
                     {% if user %}
                     <div class="user-profile" id="user-profile-btn">
                         <span class="user-email">{{ user.email }}</span>
@@ -240,14 +358,14 @@
                 <div class="card tabs-card">
                     <div class="panel-header">
                         <div class="tabs-nav">
-                            <button class="tab-btn active" data-target="tab-symptoms" id="nav-symptoms">📝
+                            <button class="tab-btn active" data-target="tab-symptoms" id="nav-symptoms">
                                 Symptoms</button>
-                            <button class="tab-btn hidden" data-target="tab-overview" id="nav-diagnosis">📋
+                            <button class="tab-btn hidden" data-target="tab-overview" id="nav-diagnosis">
                                 Diagnosis</button>
                             <button class="tab-btn {% if not user %}hidden{% endif %}" data-target="tab-hospitals"
-                                id="nav-hospitals">🏥
+                                id="nav-hospitals">
                                 Hospitals</button>
-                            <button class="tab-btn" data-target="tab-chat" id="nav-chat">🤖 AI Assistant</button>
+                            <button class="tab-btn" data-target="tab-chat" id="nav-chat"> AI Assistant</button>
                         </div>
                     </div>
 
@@ -520,15 +638,18 @@
                             <!-- Inline style to handle desktop vs mobile visibility for this specific header -->
                             <style>
                                 @media (max-width: 768px) {
+
                                     /* Hide FAB when chat tab is active */
                                     body:has(#tab-chat.active) #mobile-chat-fab {
                                         display: none !important;
                                     }
+
                                     /* Swap User profile and Back button in Global Header */
                                     body:has(#tab-chat.active) #user-profile-btn,
                                     body:has(#tab-chat.active) #login-trigger-btn {
                                         display: none !important;
                                     }
+
                                     body:has(#tab-chat.active) #global-chat-back {
                                         display: flex !important;
                                     }

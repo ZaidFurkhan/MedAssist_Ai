@@ -17,21 +17,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const getStartedBtn = document.getElementById('get-started-btn');
     const getDemoBtn = document.getElementById('get-demo-btn');
 
+    // --- Demo / Guest Mode Initialization ---
     // Handle Landing Page Transitions
     const urlParams = new URLSearchParams(window.location.search);
     const isDemoMode = urlParams.get('demo') === '1';
 
-    if (getStartedBtn) {
-        getStartedBtn.addEventListener('click', () => {
-            document.getElementById('login-trigger-btn')?.click();
-        });
-    }
+    // Guest mode is active if we are in demo mode AND no user is logged in
+    const isLoggedIn = !!document.getElementById('user-profile-btn');
+    window._isGuestMode = isDemoMode && !isLoggedIn;
 
-    // --- Demo Mode Initialization ---
-    if (isDemoMode) {
-        // Skip landing page immediately
-        landingPage.classList.add('hidden');
-        mainDashboard.classList.remove('hidden');
+    if (window._isGuestMode) {
+        // Skip landing page immediately for guests in demo mode
+        landingPage?.classList.add('hidden');
+        mainDashboard?.classList.remove('hidden');
         document.body.classList.add('mobile-dashboard-active');
         document.getElementById('demo-badge')?.classList.remove('hidden');
 
@@ -45,6 +43,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.stopPropagation();
                     alert("This feature requires a registered account. Please sign up to explore history and bookings!");
                 }, true); // Use capture to intercept clicks
+            }
+        });
+    }
+
+    // Ensure "Get Started" opens the auth modal reliably
+    if (getStartedBtn) {
+        getStartedBtn.addEventListener('click', () => {
+            // First show dashboard/modal container if it was hidden
+            if (mainDashboard?.classList.contains('hidden')) {
+                mainDashboard.classList.remove('hidden');
+            }
+            // Trigger login modal
+            const loginBtn = document.getElementById('login-trigger-btn');
+            if (loginBtn) {
+                loginBtn.click();
+            } else {
+                // Fallback if button is missing (e.g. user already logged in)
+                authModal.style.display = 'flex';
+                showView('login');
             }
         });
     }
@@ -839,7 +856,12 @@ Keep your tone balanced, user-friendly, and concise.`
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
 
-            location.reload(); // Reload to update UI with user session
+            // If we were in demo mode, redirect to root to clear the query param
+            if (window.location.search.includes('demo=1')) {
+                window.location.href = '/';
+            } else {
+                location.reload(); 
+            }
         } catch (err) {
             alert(err.message);
         }
@@ -874,6 +896,11 @@ Keep your tone balanced, user-friendly, and concise.`
 
             // Store email for verification view
             document.getElementById('verify-form').dataset.email = email;
+            
+            // If we were in demo mode, we still need to verify, but we can set a flag
+            // to redirect to root AFTER verification is successful.
+            window._pendingDemoExit = window.location.search.includes('demo=1');
+            
             showView('verify');
         } catch (err) {
             alert(err.message);
@@ -905,7 +932,13 @@ Keep your tone balanced, user-friendly, and concise.`
             if (!res.ok) throw new Error(data.error || "Verification failed.");
 
             alert(data.message);
-            showView('login');
+            
+            // If we registered from demo mode, redirect to root to clear param
+            if (window._pendingDemoExit) {
+                window.location.href = '/?login_required=1'; // Show login view on reload
+            } else {
+                showView('login');
+            }
         } catch (err) {
             alert(err.message);
         }
@@ -1089,4 +1122,42 @@ Keep your tone balanced, user-friendly, and concise.`
             document.body.classList.remove('mobile-chat-active');
         }
     });
+
+    // --- Contact Form Illusion ---
+    const contactForm = document.getElementById('contact-form');
+    const contactSuccess = document.getElementById('contact-success');
+    const contactFormContainer = document.getElementById('contact-form-container');
+    const resetContactBtn = document.getElementById('reset-contact-form');
+
+    if (contactForm) {
+        contactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            // Transition: vanish form, show success
+            if (contactFormContainer) {
+                contactFormContainer.style.transition = 'all 0.5s ease';
+                contactFormContainer.style.opacity = '0';
+                contactFormContainer.style.transform = 'translateY(-20px)';
+            }
+
+            setTimeout(() => {
+                contactFormContainer?.classList.add('hidden');
+                contactSuccess?.classList.remove('hidden');
+            }, 500);
+        });
+    }
+
+    if (resetContactBtn) {
+        resetContactBtn.addEventListener('click', () => {
+            if (contactSuccess) contactSuccess.classList.add('hidden');
+            if (contactFormContainer) {
+                contactFormContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    contactFormContainer.style.opacity = '1';
+                    contactFormContainer.style.transform = 'translateY(0)';
+                }, 10);
+            }
+            contactForm?.reset();
+        });
+    }
 });
