@@ -1,10 +1,10 @@
-# Smart-CDSS (Clinical Decision Support System)
+# MedAssist.AI (Smart Healthcare With AI)
 
 ---
 
 ## 🎯 Project Overview
 
-**Smart-CDSS** is an intelligent, AI‑powered clinical decision support system that helps users predict diseases based on symptoms, locate nearby specialised hospitals, and manage appointments. It combines:
+**MedAssist* is an intelligent, AI‑powered clinical decision support system that helps users predict diseases based on symptoms, locate nearby specialised hospitals, and manage appointments. It combines:
 - A Flask backend with a PostgreSQL (Neon) database.
 - Groq LLM integration for chatbot and disease‑information generation.
 - Geoapify for geo‑based hospital search.
