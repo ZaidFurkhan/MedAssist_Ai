@@ -33,3 +33,7 @@ Thumbs.db
 create_test_user.py
 test_*.py
 debug_*.py
+
+# Generated Reports
+MedAssist_Project_Report.docx
+*.docx
