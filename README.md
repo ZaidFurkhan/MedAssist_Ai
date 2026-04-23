@@ -37,9 +37,7 @@ The platform is built for both **desktop** and **mobile‑first** experiences, o
 | **AI / LLM** | Groq (Llama‑3.1‑8B‑Instant) |
 | **Email Service** | Brevo (Sendinblue) |
 | **Geolocation** | Geoapify Places API |
-| **Frontend** | Jinja2 templates, vanilla JavaScript, modern CSS (glassmorphism, gradients) |
-| **Containerisation** | Docker (optional) |
-| **CI/CD** | GitHub Actions (future) |
+| **Frontend** | html, css, vanilla JavaScript|
 
 ---
 
@@ -48,7 +46,6 @@ The platform is built for both **desktop** and **mobile‑first** experiences, o
 ### Prerequisites
 - **Python 3.11+**
 - **Git**
-- **Docker** (optional, for containerised dev)
 - **Neon PostgreSQL** account (or any PostgreSQL instance)
 - API keys for:
   - **GROQ_API_KEY**
