@@ -157,9 +157,9 @@ def _background_send_verification_email(app_instance, to_email, code):
             "content-type": "application/json"
         }
         payload = {
-            "sender": {"email": BREVO_SENDER_EMAIL, "name": "Smart CDSS"},
+            "sender": {"email": BREVO_SENDER_EMAIL, "name": "MedAssist.ai"},
             "to": [{"email": to_email}],
-            "subject": "Your Smart CDSS Verification Code",
+            "subject": "Your Verification Code",
             "htmlContent": html_content
         }
         # Don't technically need app_context here since REST API relies solely on env vars
@@ -191,9 +191,9 @@ def send_appointment_email(appointment, user_email, email_type='confirmation'):
             return False
 
         subject_map = {
-            'confirmation': 'Appointment Confirmation - Smart CDSS',
-            '12h_reminder': 'Appointment Reminder (12 Hours) - Smart CDSS',
-            '1h_reminder': 'Appointment Reminder (1 Hour) - Smart CDSS'
+            'confirmation': 'Appointment Confirmation - MedAssist.ai',
+            '12h_reminder': 'Appointment Reminder (12 Hours) - MedAssist.ai',
+            '1h_reminder': 'Appointment Reminder (1 Hour) - MedAssist.ai'
         }
         title_map = {
             'confirmation': 'Appointment Confirmed',
