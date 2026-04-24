@@ -18,11 +18,5 @@
       "src": "/(.*)",
       "dest": "app.py"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/test/check_reminders",
-      "schedule": "*/10 * * * *"
-    }
   ]
 }
