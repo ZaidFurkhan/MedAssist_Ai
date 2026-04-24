@@ -298,7 +298,14 @@ def check_reminders():
 
 @app.route('/api/test/check_reminders', methods=['GET'])
 def test_check_reminders():
-    """Manual trigger for testing the background job."""
+    """Manual trigger for testing the background job. In production, use a CRON_SECRET to secure this."""
+    cron_secret = os.environ.get('CRON_SECRET')
+    auth_header = request.headers.get('Authorization')
+    
+    # If CRON_SECRET is set, require it in the Authorization header
+    if cron_secret and auth_header != f"Bearer {cron_secret}":
+        return jsonify({"error": "Unauthorized"}), 401
+        
     check_reminders()
     return jsonify({"message": "Reminder check triggered."}), 200
 

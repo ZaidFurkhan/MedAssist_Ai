@@ -104,6 +104,34 @@ Open http://127.0.0.1:5000 in your browser.
 
 ---
 
+## 🚀 Deployment (Vercel)
+
+The project is configured for easy deployment on **Vercel**. Follow these steps:
+
+### 1. Configure Vercel
+1.  Connect your GitHub repository to Vercel.
+2.  Vercel will automatically detect the Python environment.
+3.  Add the following **Environment Variables** in the Vercel Dashboard:
+    - `SECRET_KEY`: A random string for session security.
+    - `DATABASE_URL`: Your Neon PostgreSQL connection string.
+    - `GROQ_API_KEY`: Your Groq API key.
+    - `BREVO_API_KEY`: Your Brevo API key.
+    - `BREVO_SENDER_EMAIL`: Your verified sender email.
+    - `GEOAPIFY_API_KEY`: Your Geoapify API key.
+    - `CRON_SECRET`: (Optional) A secret string to secure your reminder endpoint. If set, Vercel Crons will automatically use it.
+
+### 2. Reminders & Background Jobs
+> [!IMPORTANT]
+> Since Vercel uses serverless functions, the built-in `Flask-APScheduler` will not run persistently in the background. To enable automated reminders on Vercel:
+> 1. Go to your project settings in Vercel.
+> 2. Set up a **Vercel Cron Job** (available in `vercel.json`).
+> 3. Point the cron job to `/api/test/check_reminders` to run every 10 minutes.
+
+### 3. Deploy
+Push your changes to GitHub, and Vercel will build and deploy the application using the provided `vercel.json`.
+
+---
+
 ## 🚀 Usage Overview
 
 | Endpoint | Method | Description |

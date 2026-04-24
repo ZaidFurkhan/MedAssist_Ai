@@ -1,0 +1,12 @@
+.git
+__pycache__
+dataset
+diagrams
+MedAssist_Project_Report.docx
+scratch
+*.pyc
+.env
+.ipynb_checkpoints
+venv
+env
+node_modules
