@@ -671,6 +671,9 @@ def get_disease_info():
     if not disease:
         return jsonify({"error": "Disease parameter is required."}), 400
         
+    if not os.environ.get('GROQ_API_KEY'):
+        return jsonify({"error": "GROQ_API_KEY is not configured in environment variables."}), 500
+        
     import re
     prompt = (
         f"Provide a comprehensive but concise summary of the disease '{disease}'. "
@@ -700,7 +703,10 @@ def get_disease_info():
         return jsonify({"error": "Failed to parse info from AI provider."}), 500
     except Exception as e:
         print(f"[DiseaseInfo] Groq error: {e}")
-        return jsonify({"error": f"Failed to fetch disease info."}), 500
+        return jsonify({
+            "error": "Failed to fetch disease info.",
+            "details": str(e)
+        }), 500
 
 if __name__ == '__main__':
     # Run the app locally on port 5000
