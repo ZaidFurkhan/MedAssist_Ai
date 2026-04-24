@@ -27,14 +27,9 @@ groq_client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
 
 # --- Brevo API Configuration ---
 def get_brevo_api_key():
-    from dotenv import load_dotenv
-    import os
-    # Explicitly calculate absolute path to avoid directory mis-matches
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-    load_dotenv(dotenv_path=env_path, override=True)
     key = os.environ.get('BREVO_API_KEY', '')
     if not key:
-        print(f"[EMAIL] FATAL ERROR: Could not find BREVO_API_KEY inside {env_path}")
+        print("[EMAIL] FATAL ERROR: Could not find BREVO_API_KEY in environment variables")
     return key
 
 BREVO_SENDER_EMAIL = os.environ.get('BREVO_SENDER_EMAIL', 'majidmaazzaidfurkhan@gmail.com')
@@ -340,7 +335,7 @@ def register():
             db.session.delete(new_user)
             db.session.commit()
             return jsonify({
-                "error": "Failed to send verification email. Please check the terminal logs for the exact Brevo API Error!"
+                "error": "Failed to send verification email. Please ensure BREVO_API_KEY and BREVO_SENDER_EMAIL are correctly set in Vercel."
             }), 500
 
     except Exception as e:
