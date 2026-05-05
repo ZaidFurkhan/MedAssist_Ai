@@ -9,83 +9,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadingState = document.getElementById('loading-symptoms');
     const resultContainer = document.getElementById('result-container');
     const closeResultBtn = document.getElementById('close-result');
-    const diseaseName = document.getElementById('disease-name');
+    // const diseaseName = document.getElementById('disease-name'); // REMOVED
 
     // Landing Page Elements
     const landingPage = document.getElementById('landing-page');
     const mainDashboard = document.getElementById('main-dashboard');
-    const getStartedBtn = document.getElementById('get-started-btn');
-    const getDemoBtn = document.getElementById('get-demo-btn');
-
-    // --- Demo / Guest Mode Initialization ---
-    // Handle Landing Page Transitions
-    const urlParams = new URLSearchParams(window.location.search);
-    const isDemoMode = urlParams.get('demo') === '1';
-
-    // Guest mode is active if we are in demo mode AND no user is logged in
     const isLoggedIn = !!document.getElementById('user-profile-btn');
-    window._isGuestMode = isDemoMode && !isLoggedIn;
 
-    if (window._isGuestMode) {
-        // Skip landing page immediately for guests in demo mode
+    // Ensure dashboard is visible if user is logged in
+    if (isLoggedIn) {
         landingPage?.classList.add('hidden');
         mainDashboard?.classList.remove('hidden');
-        document.body.classList.add('mobile-dashboard-active');
-        document.getElementById('demo-badge')?.classList.remove('hidden');
-
-        // Block restricted features with friendly alerts
-        const restrictedFeatures = ['nav-hospitals', 'view-more-predictions', 'view-more-appointments'];
-        restrictedFeatures.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    alert("This feature requires a registered account. Please sign up to explore history and bookings!");
-                }, true); // Use capture to intercept clicks
-            }
-        });
     }
 
-    // Ensure "Get Started" opens the auth modal reliably
-    if (getStartedBtn) {
-        getStartedBtn.addEventListener('click', () => {
-            // First show dashboard/modal container if it was hidden
-            if (mainDashboard?.classList.contains('hidden')) {
-                mainDashboard.classList.remove('hidden');
-            }
-            // Trigger login modal
-            const loginBtn = document.getElementById('login-trigger-btn');
-            if (loginBtn) {
-                loginBtn.click();
-            } else {
-                // Fallback if button is missing (e.g. user already logged in)
-                authModal.style.display = 'flex';
-                showView('login');
-            }
-        });
-    }
-
-    if (getDemoBtn) {
-        // Handled by <a> tag href="/?demo=1", but adding safety
-        getDemoBtn.onclick = () => {
-            window.location.href = '/?demo=1';
-            return false;
-        };
-    }
-
-    // Scroll Reveal Logic (Move up for priority)
-    const revealObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('active');
-            }
-        });
-    }, { threshold: 0.1 });
-
-    document.querySelectorAll('.reveal-item').forEach(item => {
-        revealObserver.observe(item);
-    });
+    // Start loading symptoms database immediately
+    loadSymptoms();
 
     // Handle Mobile FAB
     document.getElementById('mobile-chat-fab')?.addEventListener('click', () => {
@@ -287,14 +225,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(data.error || 'Server error occurred');
 
             // Show Result Overlay
-            diseaseName.textContent = data.prediction;
+            // diseaseName.textContent = data.prediction; // REMOVED
             currentPrediction = data.prediction; // Share with chatbot
+
+            // Store context for Appointment Booking (Triage & Referral)
+            sessionStorage.setItem('latest_prediction_context', JSON.stringify({
+                disease: data.prediction,
+                severity: data.severity,
+                summary: data.insight_data?.summary || "",
+                symptoms: selectedSymptoms,
+                timestamp: new Date().getTime()
+            }));
 
             // Render Top Predictions as Master List
             const listContainer = document.getElementById('conditions-list-container');
-            const detailsWrapper = document.getElementById('details-container-wrapper');
-            const emptyState = document.getElementById('details-empty-state');
-            const selectedHeader = document.getElementById('selected-diagnosis-header');
+            // Removed: detailsWrapper, emptyState, selectedHeader
 
             listContainer.innerHTML = ''; // clear old
 
@@ -302,8 +247,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 data.top_predictions.forEach((p, index) => {
                     const card = document.createElement('div');
                     card.className = `condition-card ${index === 0 ? 'active' : ''}`;
+                    const isAIVerified = index === 0 && data.ai_verified;
                     card.innerHTML = `
-                        <h5 style="margin-bottom: 0.25rem;">${p.disease}</h5>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <h5 style="margin: 0;">${p.disease}</h5>
+                            ${isAIVerified ? `
+                                <div class="ai-badge-mini" title="Expert Verified">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                    AI
+                                </div>
+                            ` : ''}
+                        </div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
                             <span style="color: var(--text-secondary);">Match Confidence</span>
                             <span style="font-weight: 700; color: var(--primary-color);">${p.probability}%</span>
@@ -313,29 +269,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
 
-                    // Click handler for details view
+                    // Simple styling click, no insight refresh
                     card.addEventListener('click', () => {
-                        // styling
                         document.querySelectorAll('.condition-card').forEach(c => c.classList.remove('active'));
                         card.classList.add('active');
-
-                        // update details pane
-                        emptyState.style.display = 'none';
-                        selectedHeader.style.display = 'flex';
-                        detailsWrapper.style.display = 'block';
-
-                        document.getElementById('disease-name').textContent = p.disease;
-                        currentPrediction = p.disease; // update chatbot context
-
-                        fetchDiseaseDetails(p.disease);
                     });
 
                     listContainer.appendChild(card);
                 });
 
-                // Auto-select the top result
-                const firstCard = listContainer.querySelector('.condition-card');
-                if (firstCard) firstCard.click();
+                // Auto-load the ONE unified insight for the entire condition
+                fetchHealthInsights(data.prediction, data.top_predictions, selectedSymptoms);
             }
 
             // Reveal blocked tabs
@@ -410,16 +354,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 data.hospitals.forEach(h => {
-                    const badge = h.is_specialized ? `<span class="hospital-recommended-badge">Recommended</span>` : '';
+                    const isFar = h.distance > 5000;
+                    const distanceKm = (h.distance / 1000).toFixed(1);
 
                     const mapQuery = encodeURIComponent(`${h.name} ${h.lat},${h.lon}`);
                     const appointmentBtn = window._isGuestMode
                         ? `<button onclick="alert('Please login or create an account to book appointments.')" class="hospital-book-btn disabled">🔒 Login to Book</button>`
                         : `<button onclick="window.location.href = '/appointment?hospital=' + encodeURIComponent('${h.name.replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" class="hospital-book-btn">📅 Book Appointment</button>`;
+
                     html += `
-                        <div class="hospital-card">
-                            <h5 class="hospital-name">${h.name} ${badge}</h5>
-                            <p class="hospital-address">📍 ${h.address}</p>
+                        <div class="hospital-card ${isFar ? 'is-far' : ''}">
+                            <h5 class="hospital-name">${h.name}</h5>
+                            <p class="hospital-address">📍 ${h.address} <span style="color: ${isFar ? '#F59E0B' : 'var(--success-color)'}; font-weight: 700;">(${distanceKm} km away)</span></p>
                             ${h.phone !== 'Phone not available' ? `<p class="hospital-phone">📞 ${h.phone}</p>` : '<div class="hospital-phone placeholder"></div>'}
                             
                             <div class="hospital-card-actions">
@@ -480,8 +426,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- Disease Info Intelligence Logic ---
-    async function fetchDiseaseDetails(diseaseName) {
+    // --- Health Insights Logic ---
+    async function fetchHealthInsights(diseaseName, topPredictions, symptoms) {
         const loadingDiv = document.getElementById('disease-details-loading');
         const contentDiv = document.getElementById('disease-details-content');
 
@@ -494,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const loadingSteps = [
             "Analyzing pathology for " + diseaseName + "...",
             "Consulting medical literature...",
-            "Generating dietary guidelines...",
+            "Generating personalized insights...",
             "Finalizing comprehensive report..."
         ];
 
@@ -507,57 +453,125 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2500);
 
         try {
-            const res = await fetch(`/api/disease-info?disease=${encodeURIComponent(diseaseName)}`);
+            // First, get severity from the existing disease-info endpoint or a predefined map
+            // For now, we'll fetch disease-info to get the severity, then use it for insights
+            const infoRes = await fetch(`/api/disease-info?disease=${encodeURIComponent(diseaseName)}`);
+            const infoData = await infoRes.json();
+            const severity = infoData.severity || 'Moderate';
+
+            const res = await fetch('/api/health-insights', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    symptoms: symptoms,
+                    top_predictions: topPredictions,
+                    severity: severity,
+                    medicines: 'None' // We don't have a medicines input yet
+                })
+            });
             const data = await res.json();
 
             if (data.error) throw new Error(data.error);
 
-            document.getElementById('detail-description').textContent = data.description || 'No description available.';
+            // 1. Summary & Explanation (with Markdown support)
+            const summaryEl = document.getElementById('insight-summary');
+            const explanationEl = document.getElementById('insight-explanation');
+
+            if (typeof marked !== 'undefined') {
+                summaryEl.innerHTML = marked.parse(data.summary || '');
+                explanationEl.innerHTML = marked.parse(data.explanation || '');
+            } else {
+                summaryEl.textContent = data.summary || '';
+                explanationEl.textContent = data.explanation || '';
+            }
+
+            // 2. Symptom Mapping
+            const mappingContainer = document.getElementById('insight-symptom-mapping');
+            mappingContainer.innerHTML = '';
+            const mappingCard = mappingContainer.closest('.insight-card-item');
+
+            if (data.symptom_analysis && data.symptom_analysis.length > 0) {
+                mappingCard.classList.remove('hidden-card');
+                data.symptom_analysis.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'mapping-row';
+                    row.innerHTML = `
+                        <span class="mapping-symptom">${item.symptom}</span>
+                        <span class="mapping-arrow">→</span>
+                        <span class="mapping-connection">${item.connection}</span>
+                    `;
+                    mappingContainer.appendChild(row);
+                });
+            } else {
+                mappingCard.classList.add('hidden-card');
+            }
+
+            // 3. Lists (Precautions, Diet, Lifestyle)
+            const populateList = (id, items) => {
+                const el = document.getElementById(id);
+                const card = el.closest('.insight-card-item');
+                el.innerHTML = '';
+
+                if (items && items.length > 0) {
+                    card.classList.remove('hidden-card');
+                    items.forEach(text => {
+                        const li = document.createElement('li');
+                        li.textContent = text;
+                        el.appendChild(li);
+                    });
+                } else {
+                    card.classList.add('hidden-card');
+                }
+            };
+            populateList('insight-precautions', data.precautions);
+            populateList('insight-diet', data.diet);
+            populateList('insight-lifestyle', data.lifestyle);
+
+            // 4. Roadmap
+            const roadmapContainer = document.getElementById('insight-roadmap');
+            const roadmapCard = roadmapContainer.closest('.insight-card-item');
+            roadmapContainer.innerHTML = '';
+
+            if (data.roadmap && data.roadmap.length > 0) {
+                roadmapCard.classList.remove('hidden-card');
+                data.roadmap.forEach((step, idx) => {
+                    const stepEl = document.createElement('div');
+                    stepEl.className = 'roadmap-step';
+                    stepEl.innerHTML = `
+                        <div class="step-number">${idx + 1}</div>
+                        <div class="step-text">${step}</div>
+                    `;
+                    roadmapContainer.appendChild(stepEl);
+                });
+            } else {
+                roadmapCard.classList.add('hidden-card');
+            }
+
+            // 5. Alternatives
+            document.getElementById('insight-alternatives').textContent = data.alternatives || '';
+
+            document.getElementById('detail-warning').textContent = data.warning || 'This is not a medical diagnosis. Please consult a healthcare professional if needed.';
 
             // Handle severity badge
             const severityEl = document.getElementById('disease-severity');
-            if (data.severity) {
-                const sev = data.severity.toLowerCase();
-                severityEl.textContent = data.severity;
-                severityEl.className = 'severity-badge';
+            const sev = severity.toLowerCase();
+            severityEl.textContent = severity;
+            severityEl.className = 'severity-badge-large';
 
-                if (sev.includes('low')) severityEl.classList.add('severity-low');
-                else if (sev.includes('moderate')) severityEl.classList.add('severity-moderate');
-                else if (sev.includes('high')) severityEl.classList.add('severity-high');
-                else if (sev.includes('critical')) severityEl.classList.add('severity-critical');
-                else severityEl.classList.add('severity-moderate');
+            if (sev.includes('low')) severityEl.classList.add('severity-low');
+            else if (sev.includes('moderate')) severityEl.classList.add('severity-moderate');
+            else if (sev.includes('high')) severityEl.classList.add('severity-high');
+            else if (sev.includes('critical')) severityEl.classList.add('severity-critical');
+            else severityEl.classList.add('severity-moderate');
 
-                severityEl.classList.remove('hidden');
-            } else {
-                severityEl.classList.add('hidden');
-            }
-
-            const precList = document.getElementById('detail-precautions');
-            precList.innerHTML = '';
-            (data.precautions || ['No specific precautions listed.']).forEach(p => {
-                const li = document.createElement('li');
-                li.textContent = p;
-                precList.appendChild(li);
-            });
-
-            const dietList = document.getElementById('detail-diet');
-            dietList.innerHTML = '';
-            (data.diet || ['No specific diet listed.']).forEach(d => {
-                const li = document.createElement('li');
-                li.textContent = d;
-                dietList.appendChild(li);
-            });
+            severityEl.classList.remove('hidden');
 
             // --- Text-to-Speech (TTS) Logic ---
             const readAloudBtn = document.getElementById('read-aloud-btn');
             if (readAloudBtn) {
-                // Ensure existing speech is stopped when switching diseases
                 window.speechSynthesis.cancel();
-
-                // Define the click handler dynamically for this specific prediction
                 readAloudBtn.onclick = () => {
                     if (window.speechSynthesis.speaking) {
-                        // Toggle play/stop if already speaking
                         window.speechSynthesis.cancel();
                         readAloudBtn.innerHTML = `
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -567,18 +581,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             Read
                         `;
                     } else {
-                        const textToRead = document.getElementById('detail-description').textContent;
+                        const summary = document.getElementById('insight-summary').textContent;
+                        const explanation = document.getElementById('insight-explanation').textContent;
+                        const textToRead = `${summary}. ${explanation}`;
                         const utterance = new SpeechSynthesisUtterance(textToRead);
-
-                        // Try to use a natural English voice if available
                         const voices = window.speechSynthesis.getVoices();
                         const englishVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural')));
                         if (englishVoice) utterance.voice = englishVoice;
 
-                        utterance.rate = 1.0;
-                        utterance.pitch = 1.0;
-
-                        // Change button state to indicate reading
                         readAloudBtn.innerHTML = `
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="6" y="4" width="4" height="16"></rect>
@@ -587,7 +597,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             Stop
                         `;
 
-                        // Reset button when speech finishes naturally
                         utterance.onend = () => {
                             readAloudBtn.innerHTML = `
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -597,7 +606,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 Read
                             `;
                         };
-
                         window.speechSynthesis.speak(utterance);
                     }
                 };
@@ -607,11 +615,17 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingText.textContent = originalText;
             loadingDiv.classList.add('hidden');
             contentDiv.classList.remove('hidden');
+
+            // Scroll to the top of the results section smoothly
+            const resultSection = document.getElementById('diagnosis-results-section');
+            if (resultSection) {
+                resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         } catch (error) {
-            console.error("Failed to fetch disease details intel:", error);
+            console.error("Failed to fetch health insights:", error);
             clearInterval(progressInterval);
             loadingText.textContent = originalText;
-            loadingDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:0.9rem;">AI intel temporarily unavailable.</p>';
+            loadingDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:0.9rem;">Health insights temporarily unavailable.</p>';
         }
     }
 
@@ -895,7 +909,7 @@ Your mission: Help people understand health better while staying safe, responsib
             if (window.location.search.includes('demo=1')) {
                 window.location.href = '/';
             } else {
-                location.reload(); 
+                location.reload();
             }
         } catch (err) {
             alert(err.message);
@@ -931,11 +945,11 @@ Your mission: Help people understand health better while staying safe, responsib
 
             // Store email for verification view
             document.getElementById('verify-form').dataset.email = email;
-            
+
             // If we were in demo mode, we still need to verify, but we can set a flag
             // to redirect to root AFTER verification is successful.
             window._pendingDemoExit = window.location.search.includes('demo=1');
-            
+
             showView('verify');
         } catch (err) {
             alert(err.message);
@@ -967,7 +981,7 @@ Your mission: Help people understand health better while staying safe, responsib
             if (!res.ok) throw new Error(data.error || "Verification failed.");
 
             alert(data.message);
-            
+
             // If we registered from demo mode, redirect to root to clear param
             if (window._pendingDemoExit) {
                 window.location.href = '/?login_required=1'; // Show login view on reload
@@ -1037,6 +1051,7 @@ Your mission: Help people understand health better while staying safe, responsib
                         <span class="disease">${a.doctor_name}</span>
                         <span class="date">${a.hospital_name}</span>
                         <div class="date" style="margin-top:2px;">📅 ${a.appointment_date} at ${a.appointment_time}</div>
+                        <div class="date" style="margin-top:2px; color: var(--primary);"> ${a.appointment_type || 'In-Person'}</div>
                     `;
                     apptList.appendChild(item);
                 });
@@ -1108,91 +1123,6 @@ Your mission: Help people understand health better while staying safe, responsib
         }
     });
 
-    // --- Showcase Slider Logic ---
-    const slides = document.querySelectorAll('.showcase-slide');
-    const dots = document.querySelectorAll('.nav-dot');
-    let currentSlide = 0;
-    let slideInterval;
-
-    function showSlide(index) {
-        if (slides.length === 0) return;
-
-        slides.forEach(s => s.classList.remove('active'));
-        dots.forEach(d => d.classList.remove('active'));
-
-        slides[index].classList.add('active');
-        dots[index].classList.add('active');
-        currentSlide = index;
-    }
-
-    function nextSlide() {
-        let next = (currentSlide + 1) % slides.length;
-        showSlide(next);
-    }
-
-    function startSlideTimer() {
-        stopSlideTimer();
-        slideInterval = setInterval(nextSlide, 5000);
-    }
-
-    function stopSlideTimer() {
-        if (slideInterval) clearInterval(slideInterval);
-    }
-
-    dots.forEach(dot => {
-        dot.addEventListener('click', () => {
-            const target = parseInt(dot.dataset.target);
-            showSlide(target);
-            startSlideTimer(); // Reset timer on manual click
-        });
-    });
-
-    if (slides.length > 0) {
-        startSlideTimer();
-    }
-
-    // Audit: Handle window resizing to ensure mobile classes are cleaned up if switching to desktop
-    window.addEventListener('resize', () => {
-        if (window.innerWidth > 600) {
-            document.body.classList.remove('mobile-chat-active');
-        }
-    });
-
-    // --- Contact Form Illusion ---
-    const contactForm = document.getElementById('contact-form');
-    const contactSuccess = document.getElementById('contact-success');
-    const contactFormContainer = document.getElementById('contact-form-container');
-    const resetContactBtn = document.getElementById('reset-contact-form');
-
-    if (contactForm) {
-        contactForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-
-            // Transition: vanish form, show success
-            if (contactFormContainer) {
-                contactFormContainer.style.transition = 'all 0.5s ease';
-                contactFormContainer.style.opacity = '0';
-                contactFormContainer.style.transform = 'translateY(-20px)';
-            }
-
-            setTimeout(() => {
-                contactFormContainer?.classList.add('hidden');
-                contactSuccess?.classList.remove('hidden');
-            }, 500);
-        });
-    }
-
-    if (resetContactBtn) {
-        resetContactBtn.addEventListener('click', () => {
-            if (contactSuccess) contactSuccess.classList.add('hidden');
-            if (contactFormContainer) {
-                contactFormContainer.classList.remove('hidden');
-                setTimeout(() => {
-                    contactFormContainer.style.opacity = '1';
-                    contactFormContainer.style.transform = 'translateY(0)';
-                }, 10);
-            }
-            contactForm?.reset();
-        });
-    }
+    // Initialize Hospital Discovery Mode
+    requestLocation();
 });

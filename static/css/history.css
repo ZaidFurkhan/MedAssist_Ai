@@ -1,0 +1,59 @@
+/* Page Specific Styles for Diagnosis History */
+.history-page-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+.history-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 2rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.history-record {
+    padding: 1.5rem;
+    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    margin-bottom: 1.25rem;
+    transition: transform 0.2s ease;
+}
+
+.history-record:hover {
+    transform: translateY(-2px);
+    border-color: var(--primary-soft);
+}
+
+.record-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.record-disease {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--primary-color);
+}
+
+.record-date {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.record-symptoms {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.empty-state-full {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-secondary);
+}

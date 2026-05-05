@@ -1,0 +1,87 @@
+/* Page Specific Styles for Appointments History */
+.appointments-page-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+.appointments-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 2.5rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.appointment-record {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    background: var(--surface);
+    border-radius: 18px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.appointment-record:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.08);
+}
+
+.appt-info h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-main);
+    font-size: 1.1rem;
+}
+
+.appt-info p {
+    margin: 0.25rem 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.status-badge {
+    display: inline-block;
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #059669;
+    background: #ECFDF5;
+    padding: 4px 10px;
+    border-radius: 99px;
+}
+
+.appt-date-box {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.appt-date-box .day {
+    font-weight: 700;
+    color: var(--primary-color);
+    font-size: 1rem;
+}
+
+.appt-date-box .time {
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+@media (max-width: 640px) {
+    .appointment-record {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.25rem;
+    }
+    .appt-date-box {
+        text-align: left;
+        width: 100%;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+}

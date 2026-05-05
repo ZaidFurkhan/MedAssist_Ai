@@ -1,0 +1,256 @@
+.app-container {
+    max-width: 800px;
+    padding-bottom: 4rem;
+}
+
+.appointment-card {
+    max-width: 640px;
+    margin: 0 auto;
+    margin-top: 2rem;
+    padding: 2.5rem;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05), 0 0 20px 0 rgba(124, 58, 237, 0.03);
+}
+
+.form-row {
+    margin-bottom: 1.5rem;
+}
+
+.form-row label {
+    display: block;
+    margin-bottom: 0.625rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.form-input,
+.form-select {
+    width: 100%;
+    padding: 1.125rem 1.25rem;
+    font-size: 1rem;
+    color: var(--text-main);
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+}
+
+.form-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1.25rem center;
+    background-size: 1rem;
+    padding-right: 2.5rem;
+}
+
+.form-input:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px var(--primary-soft);
+    background: white;
+}
+
+.form-input:disabled,
+.form-select:disabled {
+    background-color: #f8fafc;
+    color: var(--text-light);
+    border-color: var(--border-light);
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    background: transparent;
+    padding: 0.6rem 1.25rem 0.6rem 0.75rem;
+    border-radius: 14px;
+    border: 1px solid var(--border-light);
+    margin-bottom: 2rem;
+    transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+    background: var(--primary-soft);
+    border-color: var(--primary-soft);
+    transform: translateX(-2px);
+}
+
+.success-message {
+    display: none;
+    background-color: #ecfdf5;
+    color: #059669;
+    padding: 1.25rem;
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    border: 1px solid #a7f3d0;
+    font-weight: 500;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.success-message[style*="display: block"] {
+    display: flex !important;
+    animation: fadeIn 0.4s ease;
+}
+
+/* Center Header for this page */
+.header {
+    justify-content: center;
+    text-align: center;
+    min-height: auto;
+    padding: 1.5rem 1rem 0 1rem;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    position: relative !important;
+    top: 0;
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.header-left {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+}
+
+.header-left .logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 20px;
+}
+
+.header-left .logo svg {
+    width: 28px;
+    height: 28px;
+}
+
+#submit-btn {
+    margin-top: 1rem;
+    height: 64px;
+    border-radius: 20px;
+    font-size: 1.125rem;
+    font-weight: 700;
+    box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.4);
+}
+
+#submit-btn:hover {
+    box-shadow: 0 15px 35px -5px rgba(124, 58, 237, 0.5);
+    transform: translateY(-2px);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+    .app-container { padding: 1rem; }
+    .appointment-card {
+        padding: 1.5rem;
+        margin-top: 0.5rem;
+        border-radius: 24px;
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+    }
+    .form-row[style*="display: flex"] {
+        flex-direction: column !important;
+        gap: 1.5rem !important;
+    }
+    .header { padding: 1rem 0; }
+    .header-left h1 { font-size: 1.5rem; }
+    .header-left .subtitle { font-size: 0.9rem; padding: 0 1rem; }
+    .back-btn { margin-bottom: 1.5rem; }
+    #submit-btn { height: 56px; font-size: 1.05rem; border-radius: 16px; }
+}
+
+/* --- Smart Triage & Referral Styles --- */
+.triage-alert {
+    display: none;
+    padding: 1.5rem;
+    border-radius: 20px;
+    margin-bottom: 2rem;
+    align-items: center;
+    gap: 1.25rem;
+    border: 1px solid transparent;
+    animation: fadeIn 0.5s ease;
+}
+
+.triage-emergency {
+    display: flex;
+    background: #FEF2F2;
+    border-color: #FCA5A5;
+    color: #991B1B;
+    box-shadow: 0 10px 30px -10px rgba(220, 38, 38, 0.2);
+    animation: pulse-red 2s infinite ease-in-out;
+}
+
+.triage-urgent {
+    display: flex;
+    background: #FFFBEB;
+    border-color: #FCD34D;
+    color: #92400E;
+}
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+.referral-card-mini {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 18px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.referral-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.referral-body {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.symptom-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.s-chip {
+    background: white;
+    padding: 4px 12px;
+    border-radius: 99px;
+    font-size: 0.8rem;
+    border: 1px solid #E2E8F0;
+    color: #64748B;
+}

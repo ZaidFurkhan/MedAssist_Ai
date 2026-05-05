@@ -9,203 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Stylesheet (Re-use existing styles) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <style>
-        .app-container {
-            max-width: 800px;
-            padding-bottom: 4rem; /* less padding for this simple page */
-        }
-
-        .appointment-card {
-            max-width: 640px;
-            margin: 0 auto;
-            margin-top: 2rem;
-            padding: 2.5rem;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 28px;
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05), 0 0 20px 0 rgba(124, 58, 237, 0.03);
-        }
-
-        .form-row {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-row label {
-            display: block;
-            margin-bottom: 0.625rem;
-            font-size: 0.9375rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .form-input,
-        .form-select {
-            width: 100%;
-            padding: 1.125rem 1.25rem;
-            font-size: 1rem;
-            color: var(--text-main);
-            background: var(--surface);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            font-family: inherit;
-            transition: all 0.3s ease;
-        }
-
-        .form-select {
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 1.25rem center;
-            background-size: 1rem;
-            padding-right: 2.5rem;
-        }
-
-        .form-input:focus,
-        .form-select:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 4px var(--primary-soft);
-            background: white;
-        }
-
-        .form-input:disabled,
-        .form-select:disabled {
-            background-color: #f8fafc;
-            color: var(--text-light);
-            border-color: var(--border-light);
-            cursor: not-allowed;
-            opacity: 0.8;
-        }
-
-        .back-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 0.95rem;
-            background: transparent;
-            padding: 0.6rem 1.25rem 0.6rem 0.75rem;
-            border-radius: 14px;
-            border: 1px solid var(--border-light);
-            margin-bottom: 2rem;
-            transition: all 0.2s ease;
-        }
-
-        .back-btn:hover {
-            background: var(--primary-soft);
-            border-color: var(--primary-soft);
-            transform: translateX(-2px);
-        }
-
-        .success-message {
-            display: none;
-            background-color: #ecfdf5;
-            color: #059669;
-            padding: 1.25rem;
-            border-radius: 16px;
-            margin-bottom: 2rem;
-            border: 1px solid #a7f3d0;
-            font-weight: 500;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        
-        .success-message[style*="display: block"] {
-            display: flex !important;
-            animation: fadeIn 0.4s ease;
-        }
-
-        /* Center Header for this page */
-        .header {
-            justify-content: center;
-            text-align: center;
-            min-height: auto;
-            padding: 1.5rem 1rem 0 1rem;
-            background: transparent;
-            border: none;
-            box-shadow: none;
-            backdrop-filter: none;
-            position: relative !important; /* Prevents sticky overlap when scrolling */
-            top: 0;
-            margin-top: 0;
-            margin-bottom: 1rem;
-        }
-
-        .header-left {
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            gap: 0.75rem;
-        }
-        
-        .header-left .logo {
-            width: 56px;
-            height: 56px;
-            border-radius: 20px;
-        }
-        
-        .header-left .logo svg {
-            width: 28px;
-            height: 28px;
-        }
-
-        #submit-btn {
-            margin-top: 1rem;
-            height: 64px;
-            border-radius: 20px;
-            font-size: 1.125rem;
-            font-weight: 700;
-            box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.4);
-        }
-        
-        #submit-btn:hover {
-            box-shadow: 0 15px 35px -5px rgba(124, 58, 237, 0.5);
-            transform: translateY(-2px);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (max-width: 640px) {
-            .app-container {
-                padding: 1rem;
-            }
-            .appointment-card {
-                padding: 1.5rem;
-                margin-top: 0.5rem;
-                border-radius: 24px;
-                box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
-            }
-            .form-row[style*="display: flex"] {
-                flex-direction: column !important;
-                gap: 1.5rem !important;
-            }
-            .header {
-                padding: 1rem 0;
-            }
-            .header-left h1 {
-                font-size: 1.5rem;
-            }
-            .header-left .subtitle {
-                font-size: 0.9rem;
-                padding: 0 1rem;
-            }
-            .back-btn {
-                margin-bottom: 1.5rem;
-            }
-            #submit-btn {
-                height: 56px;
-                font-size: 1.05rem;
-                border-radius: 16px;
-            }
-        }
-    </style>
+    <!-- Page Specific Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/appointment.css') }}">
 </head>
 
 <body>
@@ -219,7 +24,8 @@
         <header class="header">
             <div class="header-left">
                 <div class="logo">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
                     </svg>
                 </div>
@@ -245,6 +51,33 @@
                     Appointment successfully booked! A confirmation text will be sent to your email.
                 </div>
 
+                <!-- Smart Triage Banner -->
+                <div id="triage-banner" class="triage-alert">
+                    <div style="font-size: 2rem;">⚠️</div>
+                    <div>
+                        <h4 style="margin: 0 0 0.25rem 0;" id="triage-title">Emergency Detected</h4>
+                        <p style="margin: 0; font-size: 0.9rem; opacity: 0.9;" id="triage-desc">This condition requires
+                            immediate attention. Please call the ER hotline or visit the facility now.</p>
+                    </div>
+                </div>
+
+                <!-- AI Referral Card -->
+                <div id="referral-container" style="display: none;">
+                    <div class="referral-card-mini">
+                        <div class="referral-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                            </svg>
+                            AI Clinical Brief
+                        </div>
+                        <div class="referral-body">
+                            <p id="referral-summary" style="margin-bottom: 0.75rem; font-weight: 500;"></p>
+                            <div class="symptom-chips" id="referral-symptoms"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <form id="appointment-form">
                     <div class="form-row">
                         <label for="hospital_name">Healthcare Facility</label>
@@ -255,11 +88,12 @@
                         <label for="doctor_name">Select Specialist</label>
                         <select id="doctor_name" class="form-select" required>
                             <option value="">-- Choose a Doctor --</option>
-                            <option value="Dr. Sarah Johnson (Cardiologist)">Dr. Sarah Johnson</option>
-                            <option value="Dr. Michael Chen (Neurologist)">Dr. Michael Chen</option>
-                            <option value="Dr. Emily Patel (General Physician)">Dr. Emily Patel</option>
-                            <option value="Dr. James Wilson (Orthopedic)">Dr. James Wilson</option>
-                            <option value="Dr. Lisa Garcia (Dermatologist)">Dr. Lisa Garcia</option>
+                            <option value="Dr. V.P. Naresh (Cardiologist)">Dr. V.P. Naresh (Cardiologist) </option>
+                            <option value="Dr. Aditya Gupta (Neurologist)">Dr. Aditya Gupta (Neurologist)</option>
+                            <option value="Dr. Anoop Sharma (General Physician)">Dr. Anoop Sharma (General Physician)
+                            </option>
+                            <option value="Dr. Sandeep Reddy (Orthopedic)">Dr. Sandeep Reddy (Orthopedic)</option>
+                            <option value="Dr. Nidhi Agarwal (Dermatologist)">Dr. Nidhi Agarwal (Dermatologist)</option>
                         </select>
                     </div>
 
@@ -277,8 +111,26 @@
                     </div>
 
                     <div class="form-row">
+                        <label for="appointment_type">Consultation Type</label>
+                        <select id="appointment_type" class="form-select" required>
+                            <option value="In-Person">In-Person Visit (At Facility)</option>
+                            <option value="Online">Online Consultation (Video Call)</option>
+                        </select>
+                        <div id="telehealth-notice"
+                            style="display: none; margin-top: 1rem; padding: 1rem; background: #EEF2FF; border-radius: 14px; border: 1px solid #C7D2FE;">
+                            <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+
+                                <div>
+                                    <p style="margin: 0; font-size: 0.85rem; color: #6366F1;">A secure meeting link will
+                                        be sent to your email after confirmation.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
                         <label for="patient_name">Patient Name</label>
-                        <input type="text" id="patient_name" class="form-input" placeholder="e.g. John Doe" required>
+                        <input type="text" id="patient_name" class="form-input" placeholder="e.g. John Snow" required>
                     </div>
 
                     <div class="form-row">
@@ -295,84 +147,8 @@
         </main>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const dateInput = document.getElementById('appointment_date');
-            const timeSelect = document.getElementById('appointment_time');
-            const form = document.getElementById('appointment-form');
-            const submitBtn = document.getElementById('submit-btn');
-            const successAlert = document.getElementById('success-alert');
-
-            // Set min date to today
-            const today = new Date().toISOString().split('T')[0];
-            dateInput.setAttribute('min', today);
-
-            // Pre-defined time slots
-            const timeSlots = [
-                "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM",
-                "11:00 AM", "11:30 AM", "01:00 PM", "01:30 PM",
-                "02:00 PM", "02:30 PM", "03:00 PM", "04:00 PM"
-            ];
-
-            dateInput.addEventListener('change', () => {
-                if (dateInput.value) {
-                    timeSelect.innerHTML = '<option value="">-- Select Time --</option>';
-                    timeSlots.forEach(slot => {
-                        timeSelect.innerHTML += `<option value="${slot}">${slot}</option>`;
-                    });
-                    timeSelect.disabled = false;
-                } else {
-                    timeSelect.innerHTML = '<option value="">-- Select Date First --</option>';
-                    timeSelect.disabled = true;
-                }
-            });
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = 'Booking...';
-
-                const payload = {
-                    hospital_name: document.getElementById('hospital_name').value,
-                    doctor_name: document.getElementById('doctor_name').value,
-                    appointment_date: document.getElementById('appointment_date').value,
-                    appointment_time: document.getElementById('appointment_time').value,
-                    patient_name: document.getElementById('patient_name').value,
-                    patient_phone: document.getElementById('patient_phone').value
-                };
-
-                try {
-                    const res = await fetch('/api/book_appointment', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    const data = await res.json();
-
-                    if (res.ok) {
-                        successAlert.style.display = 'block';
-                        form.reset();
-                        // re-disable time
-                        timeSelect.innerHTML = '<option value="">-- Select Date First --</option>';
-                        timeSelect.disabled = true;
-
-                        setTimeout(() => {
-                            successAlert.style.display = 'none';
-                        }, 5000);
-                    } else {
-                        alert(data.error || 'Failed to book appointment.');
-                    }
-                } catch (err) {
-                    console.error(err);
-                    alert("An error occurred while booking.");
-                } finally {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = 'Confirm Appointment';
-                }
-            });
-        });
-    </script>
+    <!-- Page Specific Script -->
+    <script src="{{ url_for('static', filename='js/appointment.js') }}"></script>
 </body>
 
 </html>

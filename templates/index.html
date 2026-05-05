@@ -11,7 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <script>document.documentElement.classList.add('js-enabled');</script>
+    <!-- Page Specific Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
     <!-- Markdown Parser -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -48,7 +49,7 @@
             <section class="hero-content">
                 <div class="hero-text reveal-item" data-reveal="left">
                     <div class="hero-badge">Next-Generation Healthcare Intelligence</div>
-                    <h2>Advanced AI for <br><span style="color: var(--primary)">Precise Health</span> Insights</h2>
+                    <h2>Advanced AI for <br><span style="color: var(--primary)">Precise Health Insights</span></h2>
                     <p>Empower your clinical practice with our sophisticated decision support platform. Fast, accurate,
                         and built for modern healthcare professionals.</p>
                     <div class="cta-group">
@@ -70,10 +71,16 @@
                         </a>
                     </div>
                     <p class="cta-disclaimer">The demo environment does not persist history or bookings.</p>
-                    <div style="display: flex; gap: 2rem; align-items: center; opacity: 0.7">
-                        <div><strong>99.4%</strong> <br><small>Accuracy</small></div>
-                        <div style="width: 1px; height: 20px; background: var(--border)"></div>
-                        <div><strong>50k+</strong> <br><small>Cases Analyzed</small></div>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <span style="color: black;">99.4%</span>
+                            <span>Accuracy</span>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat-item">
+                            <span style="color: black;">50k+</span>
+                            <span>Cases Analyzed</span>
+                        </div>
                     </div>
                 </div>
                 <div class="hero-visual reveal-item" data-reveal="right">
@@ -486,95 +493,119 @@
                             </div>
                             <div class="diagnosis-header" id="diagnosis-header"></div>
 
-                            <!-- Master-Detail Grid Layout -->
-                            <div class="master-detail-grid">
-
-                                <!-- Left Pane: Prediction List -->
-                                <div class="conditions-pane">
-                                    <h4 class="pane-title">Conditions that match your symptoms</h4>
-                                    <!-- Dynamic list populates here -->
-                                    <div id="conditions-list-container" class="conditions-list">
-                                        <!-- Javascript injects condition cards here -->
-                                    </div>
-                                    <div class="disclaimer mt-auto">
-                                        <strong>Disclaimer:</strong> This is an AI prediction tool and should not
-                                        replace professional medical advice.
+                            <div class="diagnosis-results-unified">
+                                <!-- Top 3 Predictions Row -->
+                                <div class="predictions-summary">
+                                    <h4 class="section-title-small">Matching Conditions</h4>
+                                    <div id="conditions-list-container" class="predictions-grid">
+                                        <!-- Javascript injects top 3 cards here -->
                                     </div>
                                 </div>
 
-                                <!-- Right Pane: Condition Details -->
-                                <div class="details-pane">
-                                    <div class="diagnosis-header" id="selected-diagnosis-header" style="display: none;">
-                                        <div class="result-icon">
-                                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
-                                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                                stroke-linejoin="round">
-                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                            </svg>
+                                <!-- AI Insight Full Width -->
+                                <div class="ai-insight-section">
+                                    <div class="insight-header-unified">
+                                        <div style="display: flex; align-items: center; gap: 1rem;">
+                                            <div class="insight-icon-ring">
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2.5">
+                                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                                                </svg>
+                                            </div>
+                                            <h3>AI-Insight of your medical condition</h3>
                                         </div>
-                                        <div>
-                                            <h3 id="disease-name" class="disease-name-lg">Disease Name</h3>
-                                            <span id="disease-severity" class="severity-badge hidden"></span>
+                                        <div id="disease-severity-container">
+                                            <span id="disease-severity" class="severity-badge-large hidden"></span>
                                         </div>
                                     </div>
 
-                                    <!-- AI Disease Details -->
-                                    <div class="disease-details-container" id="details-container-wrapper"
-                                        style="display: none;">
-                                        <div id="disease-details-loading" class="hidden">
-                                            <div class="spinner"
-                                                style="width:24px;height:24px;border-width:3px;margin: 0 auto 10px auto;">
-                                            </div>
-                                            <p style="text-align:center;font-size:0.9rem;color:var(--text-secondary);">
-                                                Generating comprehensive details...</p>
+
+                                    <div id="disease-details-loading" class="hidden">
+                                        <div class="spinner-container">
+                                            <div class="spinner-modern"></div>
+                                            <p>Analyzing your health profile...</p>
                                         </div>
-                                        <div id="disease-details-content" class="hidden">
-                                            <div class="detail-section">
-                                                <div
-                                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                                    <h5 style="margin-bottom: 0;">Overview</h5>
-                                                    <button id="read-aloud-btn" type="button"
-                                                        style="background: none; border: none; color: var(--primary-color); cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 0.85rem; font-weight: 500; font-family: inherit;">
-                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                                                            stroke="currentColor" stroke-width="2"
-                                                            stroke-linecap="round" stroke-linejoin="round">
-                                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5">
-                                                            </polygon>
-                                                            <path
-                                                                d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07">
-                                                            </path>
-                                                        </svg>
-                                                        Read
-                                                    </button>
+                                    </div>
+
+                                    <div id="disease-details-content" class="hidden">
+                                        <div class="insight-controls-top">
+                                            <button id="read-aloud-btn" type="button" class="btn-read-aloud">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2.5">
+                                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                                    <path
+                                                        d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07">
+                                                    </path>
+                                                </svg>
+                                                <span>Listen to AI Report</span>
+                                            </button>
+                                        </div>
+
+                                        <div class="insight-stack">
+                                            <!-- Overview Card -->
+                                            <div class="insight-card-item reveal-card">
+                                                <div class="card-tag">Overview</div>
+                                                <div id="insight-summary" class="insight-text-primary"></div>
+                                            </div>
+
+                                            <!-- Detailed Explanation -->
+                                            <div class="insight-card-item">
+                                                <h5 class="insight-subheading">Pathological Context</h5>
+                                                <div id="insight-explanation" class="insight-text-secondary"></div>
+                                            </div>
+
+                                            <!-- Symptom Mapping -->
+                                            <div class="insight-card-item">
+                                                <h5 class="insight-subheading">Symptom Analysis</h5>
+                                                <div id="insight-symptom-mapping" class="mapping-container"></div>
+                                            </div>
+
+                                            <!-- Management Grid -->
+                                            <div class="insight-grid-row">
+                                                <div class="insight-card-item mini-card">
+                                                    <div class="mini-card-header">
+                                                        <span class="icon-circle">🛡️</span>
+                                                        <h6>Precautions</h6>
+                                                    </div>
+                                                    <ul id="insight-precautions" class="insight-list"></ul>
                                                 </div>
-                                                <p id="detail-description"></p>
+                                                <div class="insight-card-item mini-card">
+                                                    <div class="mini-card-header">
+                                                        <span class="icon-circle">🥗</span>
+                                                        <h6>Dietary Guidelines</h6>
+                                                    </div>
+                                                    <ul id="insight-diet" class="insight-list"></ul>
+                                                </div>
+                                                <div class="insight-card-item mini-card">
+                                                    <div class="mini-card-header">
+                                                        <span class="icon-circle">🏃</span>
+                                                        <h6>Lifestyle Adjustments</h6>
+                                                    </div>
+                                                    <ul id="insight-lifestyle" class="insight-list"></ul>
+                                                </div>
                                             </div>
-                                            <div class="detail-section">
-                                                <h5>Precautions</h5>
-                                                <ul id="detail-precautions"></ul>
+
+                                            <!-- Roadmap -->
+                                            <div class="insight-card-item roadmap-card">
+                                                <h5 class="insight-subheading">Actionable Roadmap</h5>
+                                                <div id="insight-roadmap" class="roadmap-container"></div>
                                             </div>
-                                            <div class="detail-section">
-                                                <h5>Diet & Lifestyle</h5>
-                                                <ul id="detail-diet"></ul>
+
+                                            <!-- Alternatives -->
+                                            <div class="insight-card-item alternatives-card">
+                                                <h5 class="insight-subheading">Other Potential Conditions</h5>
+                                                <p id="insight-alternatives" class="insight-text-muted"></p>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <!-- Placeholder before selection -->
-                                    <div id="details-empty-state" class="empty-state">
-                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-                                            stroke="var(--text-secondary)" stroke-width="1.5" stroke-linecap="round"
-                                            stroke-linejoin="round" style="margin-bottom: 1rem; opacity: 0.5;">
-                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                            <line x1="3" y1="9" x2="21" y2="9"></line>
-                                            <line x1="9" y1="21" x2="9" y2="9"></line>
-                                        </svg>
-                                        <p>Select a condition from the left to view comprehensive details, dietary
-                                            guidelines, and precautions.</p>
+                                        <div id="detail-warning" class="safety-banner-modern"></div>
                                     </div>
                                 </div>
 
+                                <div class="disclaimer-unified">
+                                    <strong>Disclaimer:</strong> This tool provides AI-driven insights for educational
+                                    purposes and is not a clinical diagnosis. Always consult a healthcare professional.
+                                </div>
                             </div>
                             {% if user %}
                             <!-- Mobile: Find Hospital CTA at bottom of diagnosis -->
@@ -811,6 +842,8 @@
         </svg>
     </div>
 
+    <!-- Page Specific Script -->
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
     <!-- Main JavaScript -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>

@@ -22,8 +22,9 @@ from ml.predict import predict_disease
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev_key_for_demo_123')
 
-# Initialize Groq client
+# Initialize Groq clients
 groq_client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
+groq_insights_client = Groq(api_key=os.environ.get('GROQ_INSIGHTS_API_KEY', os.environ.get('GROQ_API_KEY')))
 
 # --- Brevo API Configuration ---
 def get_brevo_api_key():
@@ -35,25 +36,52 @@ def get_brevo_api_key():
 BREVO_SENDER_EMAIL = os.environ.get('BREVO_SENDER_EMAIL', 'majidmaazzaidfurkhan@gmail.com')
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
+# Define base directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Configure SQLAlchemy (PostgreSQL default for demo)
 # Automatically handle Render/Heroku 'postgres://' database URLs
-db_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/smartcdss')
-if db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# CRITICAL FIX for Neon DB on Render:
-# Neon automatically closes idle connections after a few minutes, causing Gunicorn to hang and timeout.
-# pool_pre_ping=True forces SQLAlchemy to check the connection before sending queries.
-# pool_recycle=280 reconnects silently every 4.6 minutes.
+# Configure SQLAlchemy (Postgres with absolute SQLite fallback for Windows stability)
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,
     'pool_recycle': 280,
     'pool_timeout': 30,
 }
+
+# --- Database Configuration (Simplified) ---
+db_url = os.environ.get('DATABASE_URL')
+if db_url and db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
+
+with app.app_context():
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"[Database] Connection Error: {e}")
+
+@app.route('/api/db-debug')
+def db_debug():
+    """Diagnostic route to check database connection status."""
+    try:
+        from sqlalchemy import text
+        db.session.execute(text('SELECT 1'))
+        return jsonify({
+            "status": "connected",
+            "uri": app.config['SQLALCHEMY_DATABASE_URI'].split('@')[-1], # Mask password
+            "message": "Successfully reached PostgreSQL!"
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "failed",
+            "error": str(e),
+            "tip": "Check your DATABASE_URL in .env and ensure port 5432 is not blocked by your firewall."
+        }), 500
+
 
 # --- Flask-APScheduler Configuration ---
 try:
@@ -86,6 +114,9 @@ class PredictionRecord(db.Model):
     symptoms = db.Column(db.Text, nullable=False)  # JSON-encoded list
     predicted_disease = db.Column(db.String(255), nullable=False)
     top_predictions = db.Column(db.Text, nullable=False)  # JSON-encoded list
+    age = db.Column(db.Integer, nullable=True)
+    gender = db.Column(db.String(20), nullable=True)
+    severity = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Appointment(db.Model):
@@ -96,6 +127,8 @@ class Appointment(db.Model):
     appointment_time = db.Column(db.String(50), nullable=False)
     patient_name = db.Column(db.String(255), nullable=False)
     patient_phone = db.Column(db.String(50), nullable=False)
+    appointment_type = db.Column(db.String(50), nullable=False, default="In-Person") # In-Person or Online
+    clinical_brief = db.Column(db.Text, nullable=True) # JSON-encoded brief
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     
@@ -111,10 +144,28 @@ class Appointment(db.Model):
             'doctor_name': self.doctor_name,
             'appointment_date': self.appointment_date,
             'appointment_time': self.appointment_time,
+            'appointment_type': self.appointment_type,
             'patient_name': self.patient_name,
             'patient_phone': self.patient_phone,
             'created_at': self.created_at.isoformat()
         }
+
+
+class ClinicalMemory(db.Model):
+    """Stores AI-driven corrections to improve future ML predictions."""
+    id = db.Column(db.Integer, primary_key=True)
+    symptom_hash = db.Column(db.String(64), index=True) # Unique hash for a set of symptoms
+    disease_name = db.Column(db.String(100))
+    correction_count = db.Column(db.Integer, default=1) # How many times AI suggested this for these symptoms
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('symptom_hash', 'disease_name', name='_symptom_disease_uc'),)
+
+def get_symptom_hash(symptoms):
+    """Generate a stable hash for a sorted list of symptoms."""
+    s_list = sorted([s.strip().lower() for s in symptoms])
+    import hashlib
+    return hashlib.sha256(",".join(s_list).encode()).hexdigest()
 
 # Create tables if they don't exist
 with app.app_context():
@@ -134,7 +185,7 @@ SYMPTOMS_PATH = os.path.join(BASE_DIR, 'model', 'symptoms.pkl')
 def index():
     """Render the main UI page."""
     user_id = session.get('user_id')
-    user = User.query.get(user_id) if user_id else None
+    user = db.session.get(User, user_id) if user_id else None
     return render_template('index.html', user=user)
 
 
@@ -183,7 +234,7 @@ def send_verification_email(app_instance, to_email, code):
     """
     return _background_send_verification_email(app_instance, to_email, code)
         
-def send_appointment_email(appointment, user_email, email_type='confirmation'):
+def send_appointment_email(appointment, user_email, email_type='confirmation', clinical_brief=None):
     """Send appointment email synchronously via Brevo REST API."""
     try:
         if not user_email:
@@ -201,18 +252,46 @@ def send_appointment_email(appointment, user_email, email_type='confirmation'):
             '1h_reminder': 'Upcoming Appointment (1h)'
         }
 
+        # AI Clinical Brief Section
+        brief_html = ""
+        if clinical_brief and email_type == 'confirmation':
+            summary = clinical_brief.get('summary', '')
+            symptoms = clinical_brief.get('symptoms', [])
+            symptoms_html = "".join([f'<span style="background:#EEF2FF;color:#4338CA;padding:4px 10px;border-radius:12px;font-size:0.85rem;margin-right:6px;display:inline-block;margin-bottom:6px;">{s}</span>' for s in symptoms])
+            
+            brief_html = f"""
+            <div style="margin-top:24px;padding:20px;border:1.5px dashed #E0E7FF;border-radius:16px;background:#F5F7FF;">
+                <h4 style="color:#4338CA;margin-top:0;margin-bottom:12px;font-size:0.95rem;text-transform:uppercase;letter-spacing:0.05em;">AI Clinical Brief</h4>
+                <p style="color:#374151;font-size:0.95rem;line-height:1.5;margin-bottom:12px;">{summary}</p>
+                <div style="margin-top:8px;">{symptoms_html}</div>
+            </div>
+            """
+
         html_content = f"""
         <div style="font-family:Inter,sans-serif;max-width:550px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:16px;">
-            <h2 style="color:#4F46E5;margin-bottom:16px;">{title_map.get(email_type, 'Appointment Update')}</h2>
-            <p style="color:#475569;font-size:1.1rem;margin-bottom:24px;">Hello <strong>{appointment.patient_name}</strong>, here are the details of your appointment:</p>
+            <div style="text-align:center;margin-bottom:24px;">
+                <h1 style="color:#4F46E5;margin:0;font-size:1.5rem;">MedAssist.ai</h1>
+            </div>
+            <h2 style="color:#1E293B;margin-bottom:16px;font-size:1.25rem;">{title_map.get(email_type, 'Appointment Update')}</h2>
+            <p style="color:#475569;font-size:1rem;margin-bottom:24px;">Hello <strong>{appointment.patient_name}</strong>, here are the details of your appointment:</p>
             
-            <div style="background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:24px;">
+            <div style="background:#f8fafc;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #f1f5f9;">
                 <table style="width:100%;border-collapse:collapse;">
-                    <tr><td style="padding:8px 0;color:#64748B;width:120px;">Hospital:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.hospital_name}</td></tr>
-                    <tr><td style="padding:8px 0;color:#64748B;">Doctor:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.doctor_name}</td></tr>
-                    <tr><td style="padding:8px 0;color:#64748B;">Date:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_date}</td></tr>
-                    <tr><td style="padding:8px 0;color:#64748B;">Time Slot:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_time}</td></tr>
+                    <tr><td style="padding:8px 0;color:#64748B;width:120px;font-size:0.9rem;">Hospital:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.hospital_name}</td></tr>
+                    <tr><td style="padding:8px 0;color:#64748B;font-size:0.9rem;">Doctor:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.doctor_name}</td></tr>
+                    <tr><td style="padding:8px 0;color:#64748B;font-size:0.9rem;">Date:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_date}</td></tr>
+                    <tr><td style="padding:8px 0;color:#64748B;font-size:0.9rem;">Time Slot:</td><td style="padding:8px 0;color:#1E293B;font-weight:600;">{appointment.appointment_time}</td></tr>
+                    <tr><td style="padding:8px 0;color:#64748B;font-size:0.9rem;">Mode:</td><td style="padding:8px 0;color:#4F46E5;font-weight:700;">{appointment.appointment_type}</td></tr>
                 </table>
+            </div>
+
+            {f'<div style="margin-bottom:24px;text-align:center;"><a href="https://meet.google.com/new" style="display:inline-block;background:#4F46E5;color:white;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:0.95rem;">🎥 Join Online Consultation</a><p style="color:#64748B;font-size:0.8rem;margin-top:8px;">Meeting link will be active at the scheduled time.</p></div>' if appointment.appointment_type == "Online" else ""}
+
+            {brief_html}
+
+            <div style="margin-top:32px;padding-top:16px;border-top:1px solid #f1f5f9;text-align:center;color:#94A3B8;font-size:0.8rem;">
+                <p>This is an AI-assisted diagnostic brief. Always consult with your doctor for clinical decisions.</p>
+                <p>&copy; 2024 MedAssist.ai - Your Intelligent Healthcare Partner</p>
             </div>
         </div>
         """
@@ -223,7 +302,7 @@ def send_appointment_email(appointment, user_email, email_type='confirmation'):
             "content-type": "application/json"
         }
         payload = {
-            "sender": {"email": BREVO_SENDER_EMAIL, "name": "Smart CDSS Appointments"},
+            "sender": {"email": BREVO_SENDER_EMAIL, "name": "MedAssist.ai Appointments"},
             "to": [{"email": user_email}],
             "subject": subject_map.get(email_type, 'Appointment Update'),
             "htmlContent": html_content
@@ -277,7 +356,7 @@ def check_reminders():
             
             # 12h Reminder: time_to_appt <= 12 hours
             if not appt.reminder_12h_sent and timedelta(hours=0) < time_to_appt <= timedelta(hours=12):
-                user = User.query.get(appt.user_id) if appt.user_id else None
+                user = db.session.get(User, appt.user_id) if appt.user_id else None
                 user_email = user.email if user else None
                 if send_appointment_email(appt, user_email, email_type='12h_reminder'):
                     appt.reminder_12h_sent = True
@@ -390,7 +469,7 @@ def history():
     """Render the full prediction history page. Requires login."""
     if 'user_id' not in session:
         return redirect('/?login_required=1')
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     return render_template('history.html', user=user)
 
 @app.route('/appointments-history')
@@ -398,7 +477,7 @@ def appointments_history():
     """Render the full appointments history page. Requires login."""
     if 'user_id' not in session:
         return redirect('/?login_required=1')
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     return render_template('appointments_history.html', user=user)
 
 @app.route('/appointment')
@@ -430,16 +509,18 @@ def book_appointment():
             appointment_date=data['appointment_date'],
             appointment_time=data['appointment_time'],
             patient_name=data['patient_name'],
-            patient_phone=data['patient_phone']
+            patient_phone=data['patient_phone'],
+            appointment_type=data.get('appointment_type', 'In-Person'),
+            clinical_brief=json.dumps(data.get('clinical_brief')) if data.get('clinical_brief') else None
         )
         
         db.session.add(new_appointment)
         db.session.commit()
         
         # Send confirmation email
-        user = User.query.get(user_id) if user_id else None
+        user = db.session.get(User, user_id) if user_id else None
         user_email = user.email if user else None
-        send_appointment_email(new_appointment, user_email, email_type='confirmation')
+        send_appointment_email(new_appointment, user_email, email_type='confirmation', clinical_brief=data.get('clinical_brief'))
         
         return jsonify({
             "message": "Appointment booked successfully!", 
@@ -468,6 +549,85 @@ def get_symptoms():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def adjust_predictions_with_llm(symptoms, top_predictions, age=None, gender=None):
+    """
+    Use Groq LLM to refine and re-rank the statistical ML predictions 
+    based on medical common sense and clinical logic.
+    Also incorporates 'Clinical Memory' for self-learning.
+    """
+    s_hash = get_symptom_hash(symptoms)
+    historical_corrections = ClinicalMemory.query.filter_by(symptom_hash=s_hash).all()
+    
+    # Format corrections for the AI to consider its own past "learning"
+    memory_str = ""
+    if historical_corrections:
+        memory_str = "HISTORICAL CLINICAL MEMORY (Past Corrections):\n"
+        for c in historical_corrections:
+            memory_str += f"- {c.disease_name} (Suggested {c.correction_count} times previously)\n"
+
+    preds_str = "\n".join([f"- {p['disease']} (ML Confidence: {p['probability']}%)" for p in top_predictions])
+    
+    prompt = f"""
+USER PROFILE:
+Symptoms: {', '.join(symptoms)}
+Age Group: {age if age else 'Unknown'}
+Gender: {gender if gender else 'Unknown'}
+
+ML CANDIDATES:
+{preds_str}
+
+{memory_str}
+
+TASK:
+You are a clinical diagnostic expert. Re-rank the top 3 candidates.
+Consider the ML confidence AND your past clinical memory if provided.
+
+Respond ONLY with a JSON object:
+{{
+  "adjusted_top_3": [
+    {{"disease": "Disease Name", "probability": adjusted_percentage}},
+    ...
+  ],
+  "adjustment_reason": "Explanation."
+}}
+"""
+
+    try:
+        completion = groq_insights_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=512,
+            temperature=0.2,
+            response_format={"type": "json_object"}
+        )
+        response_text = completion.choices[0].message.content.strip()
+        adjustment = json.loads(response_text)
+        
+        # Ensure the AI-adjusted list is sorted by probability
+        if adjustment and 'adjusted_top_3' in adjustment:
+            adjustment['adjusted_top_3'] = sorted(adjustment['adjusted_top_3'], key=lambda x: x['probability'], reverse=True)
+            
+        # Self-Learning Step: Update Clinical Memory
+        if adjustment and 'adjusted_top_3' in adjustment:
+            top_ai_disease = adjustment['adjusted_top_3'][0]['disease']
+            try:
+                record = ClinicalMemory.query.filter_by(symptom_hash=s_hash, disease_name=top_ai_disease).first()
+                if record:
+                    record.correction_count += 1
+                    record.last_updated = datetime.utcnow()
+                else:
+                    new_mem = ClinicalMemory(symptom_hash=s_hash, disease_name=top_ai_disease)
+                    db.session.add(new_mem)
+                db.session.commit()
+            except Exception as mem_err:
+                db.session.rollback()
+                print(f"[Learning-Error] {mem_err}")
+
+        return adjustment
+    except Exception as e:
+        print(f"[AI-Adjustment] Error: {e}")
+        return None
+
 @app.route('/api/predict', methods=['POST'])
 def predict():
     """Handle prediction requests from the frontend."""
@@ -476,30 +636,51 @@ def predict():
         if not data or 'symptoms' not in data:
             return jsonify({"error": "No symptoms provided. Please send a JSON with a 'symptoms' key."}), 400
             
-        user_symptoms = data['symptoms']
-        user_age = data.get('age')
+        user_symptoms = data.get('symptoms', [])
+        user_age_raw = data.get('age')
+        try:
+            user_age = int(user_age_raw) if user_age_raw else None
+        except (ValueError, TypeError):
+            user_age = None
+            
         user_gender = data.get('gender')
         
         # Predict the disease
         prediction = predict_disease(user_symptoms, age=user_age, gender=user_gender, model_path=MODEL_PATH, symptoms_path=SYMPTOMS_PATH)
         
-        if "error" in prediction:
-            return jsonify(prediction), 500
+        # Step 2: Adjust predictions with AI Reasoning
+        adjusted = adjust_predictions_with_llm(user_symptoms, prediction['top_predictions'], age=user_age, gender=user_gender)
+        
+        if adjusted and 'adjusted_top_3' in adjusted:
+            print(f"[AI-Adjustment] Reasoning: {adjusted.get('adjustment_reason')}")
+            prediction['top_predictions'] = adjusted['adjusted_top_3']
+            prediction['prediction'] = adjusted['adjusted_top_3'][0]['disease']
+            prediction['ai_verified'] = True
+        else:
+            prediction['ai_verified'] = False
             
         # Store prediction if user is logged in
         user_id = session.get('user_id')
         if user_id:
+            print(f"[Database] Attempting to save prediction for User {user_id}...")
             try:
                 record = PredictionRecord(
                     user_id=user_id,
                     symptoms=json.dumps(user_symptoms),
                     predicted_disease=prediction['prediction'],
-                    top_predictions=json.dumps(prediction['top_predictions'])
+                    top_predictions=json.dumps(prediction['top_predictions']),
+                    age=user_age,
+                    gender=user_gender,
+                    severity=prediction.get('severity')
                 )
                 db.session.add(record)
                 db.session.commit()
+                print(f"[Database] Successfully saved prediction for User {user_id}")
             except Exception as e:
-                print(f"Error saving prediction record: {e}")
+                db.session.rollback()
+                print(f"[Database] FATAL ERROR saving prediction for User {user_id}: {str(e)}")
+        else:
+            print("[Database] Guest scan detected. Skipping history save.")
 
         return jsonify(prediction)
         
@@ -525,15 +706,17 @@ def get_hospitals():
 
         # Geoapify Categories for medical facilities
         categories = "healthcare.hospital,healthcare.clinic_or_praxis"
-        radius = 5000 # 5km circular search
         
-        # Proximity bias to ensure nearest results come first
+        # Wise use of API: We fetch a broad 10km radius in ONE call 
+        # and then do all the ranking and iterative logic locally in Python.
+        radius = 10000 
+        
         geoapify_url = "https://api.geoapify.com/v2/places"
         params = {
             "categories": categories,
             "filter": f"circle:{lon},{lat},{radius}",
             "bias": f"proximity:{lon},{lat}",
-            "limit": 20,
+            "limit": 60, # Fetch more to allow for diverse local filtering
             "apiKey": api_key
         }
         
@@ -541,7 +724,16 @@ def get_hospitals():
         response.raise_for_status()
         data = response.json()
         
-        # Mapping predicted diseases to keywords for sorting
+        # Broad mapping for 'Discovery Mode' and sorting
+        default_specialties = {
+            'cardiology': ['cardiology', 'heart', 'cardiac'],
+            'orthopaedics': ['orthopaedics', 'bone', 'joint', 'spine', 'fracture'],
+            'dermatology': ['dermatology', 'skin', 'clinic'],
+            'pediatrics': ['pediatrics', 'child', 'infant', 'neonatal'],
+            'neurology': ['neurology', 'brain', 'nerve'],
+            'emergency': ['emergency', 'trauma', 'icu', 'critical']
+        }
+
         specialty_keywords = {
             'arthritis': ['orthopaedics', 'joint', 'arthritis'],
             'heart attack': ['cardiology', 'heart', 'cardiac'],
@@ -579,26 +771,65 @@ def get_hospitals():
                 
             h_lat = prop.get('lat')
             h_lon = prop.get('lon')
+            categories_text = " ".join(prop.get('categories', []))
+            full_text = (name + " " + categories_text).lower()
+            h_dist = prop.get('distance', 99999)
             
             # Check for specialty matching
-            is_specialized = False
-            if target_keywords:
-                full_text = (name + " " + " ".join(prop.get('categories', []))).lower()
-                if any(kw in full_text for kw in target_keywords):
-                    is_specialized = True
+            is_disease_specialist = False
+            matched_specialty = "General Healthcare"
             
+            # 1. If disease is provided, check if it's a direct match
+            if disease and target_keywords:
+                if any(kw in full_text for kw in target_keywords):
+                    is_disease_specialist = True
+                    matched_specialty = target_keywords[0].capitalize()
+            
+            # 2. Check against common specialties for Discovery Mode or tagging
+            specialty_tag = None
+            for spec, kws in default_specialties.items():
+                if any(kw in full_text for kw in kws):
+                    specialty_tag = spec.capitalize()
+                    if matched_specialty == "General Healthcare":
+                        matched_specialty = specialty_tag
+                    break
+
             hospitals.append({
                 "name": name,
                 "lat": h_lat,
                 "lon": h_lon,
                 "address": prop.get('formatted', prop.get('address_line2', 'Address not available')),
                 "phone": prop.get('contact', {}).get('phone', 'Phone not available'),
-                "is_specialized": is_specialized,
-                "distance": prop.get('distance', 99999) # Distance in meters
+                "is_specialized": is_disease_specialist,
+                "specialty": matched_specialty,
+                "distance": h_dist
             })
             
-        # Priority 1: Specialized, Priority 2: Nearest
-        hospitals.sort(key=lambda x: (not x['is_specialized'], x['distance']))
+        # Ranking & Filtering Logic (All local to save API quota)
+        if disease:
+            # Targeted Mode:
+            # Rank 1: Specialized within 5km
+            # Rank 2: Specialized within 10km
+            # Rank 3: General within 5km
+            # Rank 4: General within 10km
+            def targeted_rank(h):
+                if h['is_specialized'] and h['distance'] <= 5000: return 1
+                if h['is_specialized']: return 2
+                if h['distance'] <= 5000: return 3
+                return 4
+            hospitals.sort(key=lambda h: (targeted_rank(h), h['distance']))
+        else:
+            # Discovery Mode: Ensure we show one best of each specialty first
+            seen_specs = set()
+            diverse = []
+            others = []
+            for h in sorted(hospitals, key=lambda x: x['distance']):
+                if h['specialty'] != "General Healthcare" and h['specialty'] not in seen_specs:
+                    diverse.append(h)
+                    seen_specs.add(h['specialty'])
+                else:
+                    others.append(h)
+            hospitals = diverse + others
             
         seen = set()
         clean_hospitals = []
@@ -607,7 +838,10 @@ def get_hospitals():
                 seen.add(h['name'])
                 clean_hospitals.append(h)
                 
-        return jsonify({"hospitals": clean_hospitals[:10], "search_radius": radius})
+        return jsonify({
+            "hospitals": clean_hospitals[:15],
+            "target_specialty": target_keywords[0].capitalize() if (disease and target_keywords) else None
+        })
         
     except Exception as e:
         return jsonify({"error": f"Failed to fetch hospitals: {str(e)}"}), 500
@@ -659,6 +893,84 @@ def chat():
         print(f"[Chat] Groq error: {err_msg}")
         return jsonify({"error": f"AI error (for debugging): {err_msg}"}), 500
 
+@app.route('/api/health-insights', methods=['POST'])
+def get_health_insights():
+    """Generate structured health insights based on prediction results using Groq LLM."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    symptoms = data.get('symptoms', [])
+    top_predictions = data.get('top_predictions', [])
+    severity = data.get('severity', 'moderate')
+    medicines = data.get('medicines', 'None')
+
+    if not top_predictions:
+        return jsonify({"error": "Top predictions are required"}), 400
+
+    # Format predictions for prompt
+    preds_str = "\n".join([f"{p['disease']} ({p['probability']}%)" for p in top_predictions])
+
+    prompt = f"""
+INPUT:
+Symptoms: {', '.join(symptoms)}
+Top 3 Predictions:
+{preds_str}
+Severity: {severity}
+Suggested Medicines (if any): {medicines}
+
+TASK:
+Generate a HIGHLY DETAILED, comprehensive narrative health report.
+
+STRUCTURE:
+1. Introduction & Explanation: Deeply explain the most likely condition based on the symptoms. Describe what it is, how it affects the body, and the pathological context in simple but thorough terms.
+2. Reasoning: Explicitly connect the symptoms provided to the predictions.
+3. Alternatives: Mention the other possibilities and why they are less likely.
+4. Comprehensive Guidance: Provide in-depth advice covering:
+   - Immediate precautions
+   - Lifestyle adjustments
+   - Detailed dietary suggestions
+   - Self-care (for low/moderate) or emergency instructions (for critical).
+
+RULES:
+- DO NOT use any sub-headings (like 'Diet', 'Precautions', etc.). Use bold text for emphasis and paragraph breaks for structure.
+- The tone must be professional, reassuring, and extremely thorough.
+- Adapt the intensity based on the severity: {severity}.
+- For CRITICAL severity, the priority is immediate medical attention.
+- Do NOT prescribe specific dosages.
+- Response must be a single cohesive narrative.
+
+OUTPUT FORMAT (STRICT JSON):
+{{
+"summary": "1-2 sentence high-level overview.",
+"explanation": "Deep pathological explanation of the condition.",
+"symptom_analysis": [
+  {{"symptom": "symptom name", "connection": "how it relates to the condition"}}
+],
+"precautions": ["step 1", "step 2", ...],
+"diet": ["advice 1", "advice 2", ...],
+"lifestyle": ["tip 1", "tip 2", ...],
+"roadmap": ["step 1 (monitor)", "step 2 (action)", "step 3 (seek care)"],
+"alternatives": "Briefly mention other 1-2 possibilities and why they are less likely.",
+"severity": "{severity}",
+"warning": "Safety disclaimer."
+}}
+"""
+
+    try:
+        completion = groq_insights_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1024,
+            temperature=0.3,
+            response_format={"type": "json_object"}
+        )
+        response_text = completion.choices[0].message.content.strip()
+        return jsonify(json.loads(response_text))
+    except Exception as e:
+        print(f"[HealthInsights] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/disease-info', methods=['GET'])
 def get_disease_info():
     """Generate detailed information about a disease using Groq Cloud LLM."""
@@ -679,7 +991,7 @@ def get_disease_info():
     )
     
     try:
-        completion = groq_client.chat.completions.create(
+        completion = groq_insights_client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=512,
